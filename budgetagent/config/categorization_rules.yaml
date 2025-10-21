@@ -1,0 +1,82 @@
+categories:
+  mat:
+    keywords:
+      - ica
+      - coop
+      - willys
+      - hemköp
+      - lidl
+      - max
+      - burger
+      - restaurant
+      - pizzeria
+
+  boende:
+    keywords:
+      - hyra
+      - elräkning
+      - el-räkning
+      - vatten
+      - bredband
+      - internet
+      - försäkring bostads
+
+  transport:
+    keywords:
+      - bensin
+      - diesel
+      - circle k
+      - shell
+      - ingo
+      - ok/q8
+      - preem
+      - sl
+      - uber
+      - taxi
+      - parkering
+
+  nöje:
+    keywords:
+      - spotify
+      - netflix
+      - hbo
+      - viaplay
+      - disney
+      - bio
+      - konsert
+      - teater
+      - streaming
+
+  kläder:
+    keywords:
+      - h&m
+      - hm
+      - zara
+      - kappahl
+      - dressman
+      - lindex
+      - stadium
+
+  hälsa:
+    keywords:
+      - apoteket
+      - apotek
+      - läkare
+      - tandläkare
+      - vårdcentral
+      - sjukhus
+      - optiker
+
+  försäkring:
+    keywords:
+      - försäkring
+      - if försäkring
+      - folksam
+      - länsförsäkringar
+      - trygg hansa
+
+  inkomst:
+    keywords:
+      - lön
+      - salary
+      - utbetalning

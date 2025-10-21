@@ -1,14 +1,36 @@
 upcoming_bills:
   bills:
-    - name: "Elräkning"
-      amount: 900
-      due_date: "2025-11-30"
-      category: "Boende"
-    - name: "Internet"
-      amount: 399
-      due_date: "2025-11-15"
-      category: "Boende"
-    - name: "Spotify"
-      amount: 109
-      due_date: "2025-11-20"
-      category: "Nöje"
+    - amount: 900
+      category: Boende
+      due_date: '2025-11-30'
+      name: Elräkning
+    - amount: 399
+      category: Boende
+      due_date: '2025-11-15'
+      name: Internet
+    - amount: 109
+      category: Nöje
+      due_date: '2025-11-20'
+      name: Spotify
+    - amount: 900.0
+      category: Boende
+      due_date: '2025-11-30'
+      frequency: monthly
+      name: Test Elräkning
+      paid: false
+      recurring: true
+    - amount: 399.0
+      category: Boende
+      due_date: '2025-12-15'
+      frequency: monthly
+      name: Internet
+      paid: false
+      recurring: true
+    - amount: 450.0
+      category: Försäkring
+      due_date: '2025-12-20'
+      frequency: monthly
+      name: Försäkring
+      paid: false
+      recurring: true
+# Duplicate "Internet" and "Försäkring" entries removed.

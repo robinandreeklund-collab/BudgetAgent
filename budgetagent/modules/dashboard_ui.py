@@ -248,7 +248,64 @@ def update_forecast_graph(forecast_data: List[ForecastData]) -> go.Figure:
     Returns:
         Plotly Figure-objekt
     """
-    pass
+    if not forecast_data:
+        # Tom graf om ingen data finns
+        fig = go.Figure()
+        fig.add_annotation(
+            text="Ingen prognosdata tillgänglig",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False
+        )
+        return fig
+    
+    # Extrahera data från forecast_data
+    dates = [f.date for f in forecast_data]
+    balances = [float(f.balance) for f in forecast_data]
+    incomes = [float(f.income) for f in forecast_data]
+    expenses = [float(f.expenses) for f in forecast_data]
+    
+    # Skapa figur med flera linjer
+    fig = go.Figure()
+    
+    # Saldo-linje
+    fig.add_trace(go.Scatter(
+        x=dates,
+        y=balances,
+        mode='lines+markers',
+        name='Prognostiserat saldo',
+        line=dict(color='#2E86AB', width=3),
+        marker=dict(size=8)
+    ))
+    
+    # Inkomst-linje
+    fig.add_trace(go.Scatter(
+        x=dates,
+        y=incomes,
+        mode='lines',
+        name='Inkomster',
+        line=dict(color='#06A77D', width=2, dash='dash')
+    ))
+    
+    # Utgifts-linje
+    fig.add_trace(go.Scatter(
+        x=dates,
+        y=expenses,
+        mode='lines',
+        name='Utgifter',
+        line=dict(color='#D62246', width=2, dash='dash')
+    ))
+    
+    # Layout
+    fig.update_layout(
+        title='Ekonomisk prognos',
+        xaxis_title='Datum',
+        yaxis_title='Belopp (SEK)',
+        hovermode='x unified',
+        template='plotly_white',
+        height=500
+    )
+    
+    return fig
 
 
 def handle_agent_query(query: str) -> str:
@@ -274,12 +331,136 @@ def render_dashboard() -> None:
     Initierar och kör Dash-applikationen med alla paneler,
     grafer och interaktiva element.
     """
+    from decimal import Decimal
+    from datetime import datetime
+    
     app = Dash(__name__)
     app.layout = create_app_layout()
     
-    # Callbacks definieras här (implementeras senare)
-    # @app.callback(...)
-    # def update_...
+    # Callback för att uppdatera prognos-grafen vid sidladdning
+    @app.callback(
+        Output('forecast-graph', 'figure'),
+        Input('forecast-graph', 'id')  # Trigger vid laddning
+    )
+    def update_forecast(_):
+        """Uppdaterar prognosgrafen."""
+        try:
+            forecast_data = forecast_engine.simulate_monthly_balance(6)
+            return update_forecast_graph(forecast_data)
+        except Exception as e:
+            print(f"Fel vid uppdatering av prognos: {e}")
+            fig = go.Figure()
+            fig.add_annotation(
+                text=f"Fel: {str(e)}",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False
+            )
+            return fig
     
-    # app.run_server(debug=True)
-    pass
+    # Callback för att lägga till faktura
+    @app.callback(
+        Output('input-feedback', 'children'),
+        Input('add-bill-button', 'n_clicks'),
+        State('bill-name', 'value'),
+        State('bill-amount', 'value'),
+        State('bill-due-date', 'date'),
+        State('bill-category', 'value'),
+        prevent_initial_call=True
+    )
+    def add_bill_callback(n_clicks, name, amount, due_date, category):
+        """Lägger till en ny faktura."""
+        if n_clicks and name and amount and due_date and category:
+            try:
+                bill = Bill(
+                    name=name,
+                    amount=Decimal(str(amount)),
+                    due_date=datetime.fromisoformat(due_date).date(),
+                    category=category,
+                    recurring=False
+                )
+                upcoming_bills.add_bill(bill)
+                return html.Div(f"✅ Faktura '{name}' tillagd!", style={'color': 'green'})
+            except Exception as e:
+                return html.Div(f"❌ Fel: {str(e)}", style={'color': 'red'})
+        return html.Div("Fyll i alla fält", style={'color': 'orange'})
+    
+    # Callback för att lägga till inkomst
+    @app.callback(
+        Output('input-feedback', 'children', allow_duplicate=True),
+        Input('add-income-button', 'n_clicks'),
+        State('income-person', 'value'),
+        State('income-source', 'value'),
+        State('income-amount', 'value'),
+        State('income-date', 'date'),
+        State('income-recurring', 'value'),
+        prevent_initial_call=True
+    )
+    def add_income_callback(n_clicks, person, source, amount, date, recurring):
+        """Lägger till en ny inkomst."""
+        if n_clicks and person and source and amount and date:
+            try:
+                is_recurring = 'recurring' in (recurring or [])
+                income = Income(
+                    person=person,
+                    source=source,
+                    amount=Decimal(str(amount)),
+                    date=datetime.fromisoformat(date).date(),
+                    recurring=is_recurring,
+                    frequency='monthly' if is_recurring else None
+                )
+                income_tracker.add_income(income)
+                return html.Div(f"✅ Inkomst för '{person}' tillagd!", style={'color': 'green'})
+            except Exception as e:
+                return html.Div(f"❌ Fel: {str(e)}", style={'color': 'red'})
+        return html.Div("Fyll i alla fält", style={'color': 'orange'})
+    
+    # Callback för agentfrågor
+    @app.callback(
+        Output('agent-response', 'children'),
+        Input('query-submit-button', 'n_clicks'),
+        State('agent-query-input', 'value'),
+        prevent_initial_call=True
+    )
+    def handle_query_callback(n_clicks, query):
+        """Hanterar agentfrågor."""
+        if n_clicks and query:
+            try:
+                response = handle_agent_query(query)
+                return html.Div([
+                    html.H4("Svar:"),
+                    html.P(response, style={'whiteSpace': 'pre-line'})
+                ])
+            except Exception as e:
+                return html.Div(f"❌ Fel: {str(e)}", style={'color': 'red'})
+        return html.Div()
+    
+    # Callback för insikter och varningar
+    @app.callback(
+        [Output('alerts-container', 'children'),
+         Output('insights-container', 'children')],
+        Input('forecast-graph', 'id')  # Trigger vid laddning
+    )
+    def update_insights(_):
+        """Uppdaterar insikter och varningar."""
+        try:
+            # Hämta historiska transaktioner (placeholder)
+            # I en riktig implementation skulle vi ladda faktiska transaktioner
+            alerts_list = ["Inga varningar för tillfället"]
+            insights_list = ["Ladda transaktionsdata för att se insikter"]
+            
+            alerts_div = html.Div([
+                html.H4("⚠️ Varningar"),
+                html.Ul([html.Li(alert) for alert in alerts_list])
+            ])
+            
+            insights_div = html.Div([
+                html.H4("💡 Insikter"),
+                html.Ul([html.Li(insight) for insight in insights_list])
+            ])
+            
+            return alerts_div, insights_div
+        except Exception as e:
+            return html.Div(f"Fel: {e}"), html.Div()
+    
+    # Kör server
+    app.run(debug=True, host='0.0.0.0', port=8050)

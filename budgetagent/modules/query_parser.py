@@ -230,13 +230,22 @@ def handle_show_bills(params: Dict) -> str:
     Returns:
         Formaterad sträng med fakturainformation
     """
+    from . import upcoming_bills
+    
     month = params.get("month")
-    if month:
-        # bills = upcoming_bills.get_upcoming_bills(month)
-        # Placeholder för implementation
-        return f"Här är fakturorna för {month}:\n(Implementation krävs)"
-    else:
-        return "Här är alla kommande fakturor:\n(Implementation krävs)"
+    bills = upcoming_bills.get_upcoming_bills(month)
+    
+    if not bills:
+        return f"Inga fakturor hittades{' för ' + month if month else ''}."
+    
+    result = f"Fakturor{' för ' + month if month else ''}:\n\n"
+    total = 0
+    for bill in bills:
+        result += f"  • {bill.name:20s} {bill.amount:>8.2f} SEK  (förfaller {bill.due_date})\n"
+        total += float(bill.amount)
+    
+    result += f"\nTotalt: {total:.2f} SEK"
+    return result
 
 
 def handle_show_income(params: Dict) -> str:
@@ -266,11 +275,34 @@ def handle_calculate_balance(params: Dict) -> str:
     Returns:
         Formaterad sträng med saldoinformation
     """
+    from . import forecast_engine
+    from datetime import datetime
+    
     month = params.get("month")
+    
+    # Generera prognos
+    forecast = forecast_engine.simulate_monthly_balance(12)
+    
     if month:
-        return f"Prognostiserat saldo för {month}: (Implementation krävs)"
+        # Hitta den specifika månaden
+        for f in forecast:
+            if f.date.strftime('%Y-%m') == month:
+                return (f"Prognostiserat saldo för {month}:\n\n"
+                       f"  Saldo: {f.balance:.2f} SEK\n"
+                       f"  Inkomster: {f.income:.2f} SEK\n"
+                       f"  Utgifter: {f.expenses:.2f} SEK\n"
+                       f"  Netto: {f.income - f.expenses:.2f} SEK")
+        return f"Ingen prognos tillgänglig för {month}"
     else:
-        return "Nuvarande saldo: (Implementation krävs)"
+        # Visa nuvarande månad
+        current_month = datetime.now().strftime('%Y-%m')
+        for f in forecast:
+            if f.date.strftime('%Y-%m') == current_month:
+                return (f"Prognostiserat saldo för innevarande månad ({current_month}):\n\n"
+                       f"  Saldo: {f.balance:.2f} SEK\n"
+                       f"  Inkomster: {f.income:.2f} SEK\n"
+                       f"  Utgifter: {f.expenses:.2f} SEK")
+        return "Ingen prognos tillgänglig för innevarande månad"
 
 
 def handle_forecast_scenario(params: Dict) -> str:
@@ -299,9 +331,49 @@ def handle_category_spending(params: Dict) -> str:
     Returns:
         Formaterad sträng med utgiftsinformation
     """
+    from . import import_bank_data, categorize_expenses
+    from pathlib import Path
+    import yaml
+    
     category = params.get("category", "alla kategorier")
     
-    return f"Utgifter för {category}:\n(Implementation krävs)"
+    try:
+        # Försök ladda exempel-data
+        data_path = Path(__file__).parent.parent / "data" / "example_bank_data.csv"
+        if data_path.exists():
+            # Ladda kategoriseringsregler
+            config_path = Path(__file__).parent.parent / "config" / "categorization_rules.yaml"
+            with open(config_path, 'r') as f:
+                config = yaml.safe_load(f)
+                rules = config.get('categories', {})
+            
+            # Importera och kategorisera
+            transactions = import_bank_data.import_and_parse(str(data_path))
+            categorized = categorize_expenses.categorize_transactions(transactions, rules)
+            
+            # Filtrera på kategori om specificerad
+            if category != "alla kategorier":
+                filtered = [t for t in categorized if t.category and t.category.lower() == category.lower()]
+            else:
+                filtered = categorized
+            
+            # Beräkna utgifter (negativa belopp)
+            expenses = [t for t in filtered if t.amount < 0]
+            
+            if not expenses:
+                return f"Inga utgifter hittades för {category}"
+            
+            total = sum(abs(float(t.amount)) for t in expenses)
+            avg = total / len(expenses)
+            
+            return (f"Utgifter för {category}:\n\n"
+                   f"  Totalt: {total:.2f} SEK\n"
+                   f"  Antal transaktioner: {len(expenses)}\n"
+                   f"  Genomsnitt per transaktion: {avg:.2f} SEK")
+        else:
+            return f"Utgifter för {category}: Ingen data tillgänglig"
+    except Exception as e:
+        return f"Kunde inte hämta utgifter: {e}"
 
 
 def handle_alert_check(params: Dict) -> str:

@@ -33,7 +33,41 @@ def add_income(income: Income) -> None:
     Args:
         income: Income-objekt med inkomstinformation
     """
-    pass
+    import yaml
+    from pathlib import Path
+    
+    config_path = Path(__file__).parent.parent / "config" / "income_tracker.yaml"
+    
+    # Ladda befintlig data
+    if config_path.exists():
+        with open(config_path, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f) or {}
+    else:
+        data = {}
+    
+    if 'income_tracker' not in data:
+        data['income_tracker'] = {'incomes': []}
+    elif 'incomes' not in data['income_tracker']:
+        data['income_tracker']['incomes'] = []
+    
+    # Konvertera Income till dictionary
+    income_dict = {
+        'person': income.person,
+        'source': income.source,
+        'amount': float(income.amount),
+        'date': income.date.isoformat(),
+        'recurring': income.recurring,
+        'frequency': income.frequency,
+        'category': income.category
+    }
+    
+    # Lägg till inkomsten
+    data['income_tracker']['incomes'].append(income_dict)
+    
+    # Spara tillbaka
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(config_path, 'w', encoding='utf-8') as f:
+        yaml.dump(data, f, allow_unicode=True, default_flow_style=False)
 
 
 def get_monthly_income(person: str, month: str) -> float:
@@ -50,7 +84,54 @@ def get_monthly_income(person: str, month: str) -> float:
     Returns:
         Total inkomst i kronor för månaden
     """
-    pass
+    import yaml
+    from pathlib import Path
+    from datetime import datetime
+    from decimal import Decimal
+    
+    config_path = Path(__file__).parent.parent / "config" / "income_tracker.yaml"
+    
+    if not config_path.exists():
+        return 0.0
+    
+    with open(config_path, 'r', encoding='utf-8') as f:
+        data = yaml.safe_load(f) or {}
+    
+    if 'income_tracker' not in data or 'incomes' not in data['income_tracker']:
+        return 0.0
+    
+    total = Decimal(0)
+    
+    # För återkommande inkomster: välj endast den senaste (senaste startdatum <= month) per källa
+    from collections import defaultdict
+    recurring_latest = {}
+    one_time_incomes = []
+
+    for income_dict in data['income_tracker']['incomes']:
+        if income_dict['person'] != person:
+            continue
+        income_date = datetime.fromisoformat(income_dict['date']).date()
+        income_month = income_date.strftime('%Y-%m')
+        if income_dict.get('recurring', False):
+            # Endast ta med återkommande inkomster som startat före eller under denna månad
+            if income_month <= month:
+                source = income_dict.get('source')
+                # Om vi redan har en, välj den med senaste datum <= month
+                prev = recurring_latest.get(source)
+                if (prev is None) or (datetime.fromisoformat(income_dict['date']) > datetime.fromisoformat(prev['date'])):
+                    recurring_latest[source] = income_dict
+        else:
+            # Engångsinkomst - inkludera endast om den är exakt denna månad
+            if income_month == month:
+                one_time_incomes.append(income_dict)
+
+    # Summera återkommande inkomster (endast en per källa)
+    for income_dict in recurring_latest.values():
+        total += Decimal(str(income_dict['amount']))
+    # Summera engångsinkomster
+    for income_dict in one_time_incomes:
+        total += Decimal(str(income_dict['amount']))
+    return float(total)
 
 
 def forecast_income(months: int) -> List[Income]:
@@ -66,4 +147,76 @@ def forecast_income(months: int) -> List[Income]:
     Returns:
         Lista med prognostiserade Income-objekt per månad och person
     """
-    pass
+    import yaml
+    from pathlib import Path
+    from datetime import datetime, timedelta
+    from dateutil.relativedelta import relativedelta
+    from decimal import Decimal
+    
+    config_path = Path(__file__).parent.parent / "config" / "income_tracker.yaml"
+    
+    if not config_path.exists():
+        return []
+    
+    with open(config_path, 'r', encoding='utf-8') as f:
+        data = yaml.safe_load(f) or {}
+    
+    if 'income_tracker' not in data or 'incomes' not in data['income_tracker']:
+        return []
+    
+    forecasted_incomes = []
+    today = datetime.now().date()
+    
+    # Generera prognos för varje månad
+    for month_offset in range(months):
+        forecast_date = today + relativedelta(months=month_offset)
+        
+        # Gå igenom alla inkomster
+        for income_dict in data['income_tracker']['incomes']:
+            income_date = datetime.fromisoformat(income_dict['date']).date()
+            
+            if income_dict.get('recurring', False):
+                # Återkommande inkomst - lägg till för varje månad
+                frequency = income_dict.get('frequency', 'monthly')
+                
+                if frequency == 'monthly':
+                    # Lägg till om startdatum är före eller under prognosmånaden
+                    if income_date <= forecast_date:
+                        forecasted_income = Income(
+                            person=income_dict['person'],
+                            source=income_dict['source'],
+                            amount=Decimal(str(income_dict['amount'])),
+                            date=forecast_date,
+                            recurring=True,
+                            frequency='monthly',
+                            category=income_dict.get('category')
+                        )
+                        forecasted_incomes.append(forecasted_income)
+                elif frequency == 'yearly':
+                    # Lägg endast till om det är samma månad som startmånaden
+                    if income_date.month == forecast_date.month and income_date <= forecast_date:
+                        forecasted_income = Income(
+                            person=income_dict['person'],
+                            source=income_dict['source'],
+                            amount=Decimal(str(income_dict['amount'])),
+                            date=forecast_date,
+                            recurring=True,
+                            frequency='yearly',
+                            category=income_dict.get('category')
+                        )
+                        forecasted_incomes.append(forecasted_income)
+            else:
+                # Engångsinkomst - lägg till endast om den är i framtiden och inom prognosperioden
+                if income_date >= today and income_date <= (today + relativedelta(months=months)):
+                    if income_date.year == forecast_date.year and income_date.month == forecast_date.month:
+                        forecasted_income = Income(
+                            person=income_dict['person'],
+                            source=income_dict['source'],
+                            amount=Decimal(str(income_dict['amount'])),
+                            date=income_date,
+                            recurring=False,
+                            category=income_dict.get('category')
+                        )
+                        forecasted_incomes.append(forecasted_income)
+    
+    return forecasted_incomes

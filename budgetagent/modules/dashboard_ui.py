@@ -100,6 +100,31 @@ def input_panel() -> html.Div:
     return html.Div([
         html.H2("Lägg till data"),
         
+        # Nordea CSV-import
+        html.H3("Importera Nordea CSV"),
+        dcc.Upload(
+            id='upload-nordea-csv',
+            children=html.Div([
+                '📁 Dra och släpp eller ',
+                html.A('välj Nordea CSV-fil', style={'fontWeight': 'bold', 'cursor': 'pointer'})
+            ]),
+            style={
+                'width': '100%',
+                'height': '60px',
+                'lineHeight': '60px',
+                'borderWidth': '2px',
+                'borderStyle': 'dashed',
+                'borderRadius': '5px',
+                'textAlign': 'center',
+                'marginBottom': '10px',
+                'backgroundColor': '#f8f9fa'
+            },
+            multiple=False
+        ),
+        html.Div(id='upload-feedback', style={'marginBottom': '20px'}),
+        
+        html.Hr(style={'margin': '20px 0'}),
+        
         # Fakturainmatning
         html.H3("Ny faktura"),
         html.Div([
@@ -184,6 +209,7 @@ def settings_panel() -> html.Div:
         dcc.Dropdown(
             id='import-format',
             options=[
+                {'label': 'Nordea CSV', 'value': 'nordea'},
                 {'label': 'Swedbank CSV', 'value': 'swedbank'},
                 {'label': 'SEB Excel', 'value': 'seb'},
                 {'label': 'Revolut JSON', 'value': 'revolut'}
@@ -333,9 +359,74 @@ def render_dashboard() -> None:
     """
     from decimal import Decimal
     from datetime import datetime
+    import base64
+    import io
+    from . import import_bank_data, parse_transactions
     
     app = Dash(__name__)
     app.layout = create_app_layout()
+    
+    # Callback för att hantera Nordea CSV-uppladdning
+    @app.callback(
+        Output('upload-feedback', 'children'),
+        Input('upload-nordea-csv', 'contents'),
+        State('upload-nordea-csv', 'filename'),
+        prevent_initial_call=True
+    )
+    def handle_csv_upload(contents, filename):
+        """Hanterar uppladdning av Nordea CSV-fil."""
+        if contents is None:
+            return html.Div()
+        
+        try:
+            # Dekoda innehållet
+            content_type, content_string = contents.split(',')
+            decoded = base64.b64decode(content_string)
+            
+            # Spara tillfälligt till fil
+            temp_path = f'/tmp/{filename}'
+            with open(temp_path, 'wb') as f:
+                f.write(decoded)
+            
+            # Importera transaktioner
+            transactions = import_bank_data.import_and_parse(temp_path)
+            
+            if not transactions:
+                return html.Div([
+                    html.Span('⚠️ ', style={'fontSize': '20px'}),
+                    html.Span(f'Inga transaktioner hittades i {filename}')
+                ], style={'color': 'orange', 'padding': '10px', 'backgroundColor': '#fff3cd', 'borderRadius': '5px'})
+            
+            # Kategorisera transaktionerna
+            from . import categorize_expenses
+            categorized_transactions = categorize_expenses.auto_categorize(transactions)
+            
+            # Spara transaktionerna (här kan du lägga till logik för att spara till databas/YAML)
+            # För nu visar vi bara framgång
+            
+            return html.Div([
+                html.Span('✅ ', style={'fontSize': '20px'}),
+                html.Span(f'Import lyckades! {len(transactions)} transaktioner importerade från {filename}'),
+                html.Br(),
+                html.Small(f'Första transaktion: {transactions[0].date} - {transactions[0].description}', 
+                          style={'color': '#666'})
+            ], style={'color': 'green', 'padding': '10px', 'backgroundColor': '#d4edda', 'borderRadius': '5px'})
+            
+        except FileNotFoundError as e:
+            return html.Div([
+                html.Span('❌ ', style={'fontSize': '20px'}),
+                html.Span(f'Fil hittades inte: {str(e)}')
+            ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'})
+        except ValueError as e:
+            return html.Div([
+                html.Span('❌ ', style={'fontSize': '20px'}),
+                html.Span(f'Felaktigt filformat: {str(e)}')
+            ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'})
+        except Exception as e:
+            return html.Div([
+                html.Span('❌ ', style={'fontSize': '20px'}),
+                html.Span(f'Fel vid import: {str(e)}')
+            ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'})
     
     # Callback för att uppdatera prognos-grafen vid sidladdning
     @app.callback(

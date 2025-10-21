@@ -48,7 +48,7 @@ def load_file(path: str) -> pd.DataFrame:
 
 def detect_format(data: pd.DataFrame) -> str:
     """
-    Identifierar bankformat (Swedbank, SEB, Revolut etc.).
+    Identifierar bankformat (Swedbank, SEB, Revolut, Nordea etc.).
     
     Analyserar strukturen och innehållet i DataFrame för att identifiera
     vilken bank som har skapat utdraget.
@@ -57,12 +57,21 @@ def detect_format(data: pd.DataFrame) -> str:
         data: DataFrame med rådata
         
     Returns:
-        Sträng med banknamn, t.ex. "Swedbank", "SEB", "Revolut"
+        Sträng med banknamn, t.ex. "Swedbank", "SEB", "Revolut", "Nordea"
     """
     if data.empty:
         return "Unknown"
     
     columns = [col.lower() for col in data.columns]
+    
+    # Nordea format: Bokföringsdatum, Belopp, och ofta Rubrik eller Avsändare/Mottagare
+    # Nordea använder ofta "Bokföringsdatum" och antingen "Rubrik" eller både "Avsändare" och "Mottagare"
+    if 'bokföringsdatum' in columns and 'belopp' in columns:
+        # Kontrollera om det är Nordea (har Rubrik eller Avsändare/Mottagare)
+        if 'rubrik' in columns or ('avsändare' in columns or 'mottagare' in columns):
+            # Men inte SEB som också har Bokföringsdatum
+            if 'saldo' not in columns:
+                return "Nordea"
     
     # Swedbank format: Datum, Belopp, Beskrivning
     if 'datum' in columns and 'belopp' in columns and 'beskrivning' in columns:
@@ -101,7 +110,19 @@ def normalize_columns(data: pd.DataFrame, format: str) -> pd.DataFrame:
     df = data.copy()
     
     # Mapping av kolumnnamn baserat på format
-    if format == "Swedbank":
+    if format == "Nordea":
+        column_mapping = {
+            'Bokföringsdatum': 'date',
+            'Belopp': 'amount',
+            'Rubrik': 'description',
+            'Valuta': 'currency'
+        }
+        # Nordea kan ha "Avsändare" eller "Mottagare" som beskrivning
+        if 'Rubrik' not in df.columns and 'Avsändare' in df.columns:
+            column_mapping['Avsändare'] = 'description'
+        elif 'Rubrik' not in df.columns and 'Mottagare' in df.columns:
+            column_mapping['Mottagare'] = 'description'
+    elif format == "Swedbank":
         column_mapping = {
             'Datum': 'date',
             'Belopp': 'amount',
@@ -131,7 +152,7 @@ def normalize_columns(data: pd.DataFrame, format: str) -> pd.DataFrame:
                 column_mapping[col] = 'date'
             elif col_lower in ['amount', 'belopp']:
                 column_mapping[col] = 'amount'
-            elif col_lower in ['description', 'beskrivning']:
+            elif col_lower in ['description', 'beskrivning', 'rubrik']:
                 column_mapping[col] = 'description'
             elif col_lower in ['currency', 'valuta']:
                 column_mapping[col] = 'currency'

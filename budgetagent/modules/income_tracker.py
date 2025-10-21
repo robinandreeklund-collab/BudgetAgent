@@ -102,25 +102,35 @@ def get_monthly_income(person: str, month: str) -> float:
     
     total = Decimal(0)
     
+    # För återkommande inkomster: välj endast den senaste (senaste startdatum <= month) per källa
+    from collections import defaultdict
+    recurring_latest = {}
+    one_time_incomes = []
+
     for income_dict in data['income_tracker']['incomes']:
-        # Filtrera på person
         if income_dict['person'] != person:
             continue
-        
-        # Parsa datum
         income_date = datetime.fromisoformat(income_dict['date']).date()
         income_month = income_date.strftime('%Y-%m')
-        
-        # Kontrollera om inkomsten är för rätt månad
         if income_dict.get('recurring', False):
-            # Återkommande inkomst - inkludera om den startade före eller under månaden
+            # Endast ta med återkommande inkomster som startat före eller under denna månad
             if income_month <= month:
-                total += Decimal(str(income_dict['amount']))
+                source = income_dict.get('source')
+                # Om vi redan har en, välj den med senaste datum <= month
+                prev = recurring_latest.get(source)
+                if (prev is None) or (datetime.fromisoformat(income_dict['date']) > datetime.fromisoformat(prev['date'])):
+                    recurring_latest[source] = income_dict
         else:
             # Engångsinkomst - inkludera endast om den är exakt denna månad
             if income_month == month:
-                total += Decimal(str(income_dict['amount']))
-    
+                one_time_incomes.append(income_dict)
+
+    # Summera återkommande inkomster (endast en per källa)
+    for income_dict in recurring_latest.values():
+        total += Decimal(str(income_dict['amount']))
+    # Summera engångsinkomster
+    for income_dict in one_time_incomes:
+        total += Decimal(str(income_dict['amount']))
     return float(total)
 
 

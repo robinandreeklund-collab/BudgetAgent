@@ -19,10 +19,11 @@ Exempel på YAML-konfiguration (income_tracker.yaml):
               date: "2025-12-10"
 """
 
-from typing import Dict, Optional
+from typing import Dict, Optional, List
+from .models import Income
 
 
-def add_income(person: str, source: str, amount: float, date: str, recurring: bool) -> None:
+def add_income(income: Income) -> None:
     """
     Sparar inkomst i YAML.
     
@@ -30,11 +31,7 @@ def add_income(person: str, source: str, amount: float, date: str, recurring: bo
     YAML-konfigurationsfilen.
     
     Args:
-        person: Personens namn
-        source: Inkomstkälla, t.ex. "Lön", "Frilans"
-        amount: Belopp i kronor
-        date: Datum i format YYYY-MM-DD (används för engångsinkomster)
-        recurring: True för återkommande, False för engång
+        income: Income-objekt med inkomstinformation
     """
     pass
 
@@ -56,7 +53,7 @@ def get_monthly_income(person: str, month: str) -> float:
     pass
 
 
-def forecast_income(months: int) -> Dict:
+def forecast_income(months: int) -> List[Income]:
     """
     Skapar framtida inkomstprognos.
     
@@ -67,6 +64,6 @@ def forecast_income(months: int) -> Dict:
         months: Antal månader framåt att prognostisera
         
     Returns:
-        Dictionary med prognostiserade inkomster per månad och person
+        Lista med prognostiserade Income-objekt per månad och person
     """
     pass

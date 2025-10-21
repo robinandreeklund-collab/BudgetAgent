@@ -13,7 +13,8 @@ Exempel på YAML-konfiguration (settings_panel.yaml):
 """
 
 import pandas as pd
-from typing import Optional
+from typing import Optional, List
+from .models import Transaction
 
 
 def load_file(path: str) -> pd.DataFrame:
@@ -58,5 +59,21 @@ def normalize_columns(data: pd.DataFrame, format: str) -> pd.DataFrame:
         
     Returns:
         DataFrame med standardiserade kolumnnamn
+    """
+    pass
+
+
+def import_and_parse(file_path: str) -> List[Transaction]:
+    """
+    Importerar och konverterar bankdata till Transaction-objekt.
+    
+    Huvudfunktion som kombinerar filimport, formatdetektering och
+    konvertering till standardiserade Transaction-objekt.
+    
+    Args:
+        file_path: Sökväg till filen att importera
+        
+    Returns:
+        Lista med Transaction-objekt
     """
     pass

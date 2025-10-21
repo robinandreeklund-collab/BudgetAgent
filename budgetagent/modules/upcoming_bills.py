@@ -18,9 +18,10 @@ Exempel på YAML-konfiguration (upcoming_bills.yaml):
 """
 
 from typing import List, Dict
+from .models import Bill
 
 
-def add_bill(name: str, amount: float, due_date: str, category: str) -> None:
+def add_bill(bill: Bill) -> None:
     """
     Lägger till ny faktura i YAML.
     
@@ -28,15 +29,12 @@ def add_bill(name: str, amount: float, due_date: str, category: str) -> None:
     och sparar den i YAML-konfigurationsfilen.
     
     Args:
-        name: Fakturans namn/beskrivning
-        amount: Belopp i kronor
-        due_date: Förfallodatum i format YYYY-MM-DD
-        category: Kategori, t.ex. "Boende", "Nöje"
+        bill: Bill-objekt med fakturainformation
     """
     pass
 
 
-def get_upcoming_bills(month: str) -> List[Dict]:
+def get_upcoming_bills(month: str) -> List[Bill]:
     """
     Returnerar alla fakturor för vald månad.
     
@@ -46,20 +44,21 @@ def get_upcoming_bills(month: str) -> List[Dict]:
         month: Månad i format YYYY-MM
         
     Returns:
-        Lista med fakturor som dictionary-objekt
+        Lista med Bill-objekt
     """
     pass
 
 
-def validate_bill_format(bill: Dict) -> bool:
+def validate_bill_format(bill: Bill) -> bool:
     """
     Säkerställer korrekt struktur.
     
     Validerar att en faktura har alla nödvändiga fält och
-    att de har korrekt format och värden.
+    att de har korrekt format och värden. Pydantic validerar
+    automatiskt, men denna funktion kan lägga till extra affärslogik.
     
     Args:
-        bill: Dictionary med fakturadata
+        bill: Bill-objekt att validera
         
     Returns:
         True om fakturastrukturen är korrekt, annars False

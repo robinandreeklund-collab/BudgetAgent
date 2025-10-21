@@ -26,6 +26,7 @@ Output skrivs till upcoming_bills.yaml:
 """
 
 from typing import List, Dict, Optional
+from .models import Bill
 
 
 def extract_text_from_pdf(file_path: str) -> str:
@@ -43,7 +44,7 @@ def extract_text_from_pdf(file_path: str) -> str:
     pass
 
 
-def extract_bills_from_text(raw_text: str) -> List[Dict]:
+def extract_bills_from_text(raw_text: str) -> List[Bill]:
     """
     Identifierar fakturor i texten via regex eller heuristik.
     
@@ -54,24 +55,21 @@ def extract_bills_from_text(raw_text: str) -> List[Dict]:
         raw_text: Rå text från PDF
         
     Returns:
-        Lista med dictionary-objekt innehållande:
-        - name (str): Fakturans namn/beskrivning
-        - amount (float): Belopp i kronor
-        - due_date (str): Förfallodatum i format YYYY-MM-DD
-        - category (str, optional): Kategori för fakturen
+        Lista med Bill-objekt
     """
     pass
 
 
-def validate_bill_structure(bill: Dict) -> bool:
+def validate_bill_structure(bill: Bill) -> bool:
     """
     Säkerställer att varje faktura har korrekt format och fält.
     
     Validerar att en faktura innehåller alla nödvändiga fält och
-    att de har korrekta datatyper och värden.
+    att de har korrekta datatyper och värden. Pydantic validerar
+    automatiskt, men denna funktion kan lägga till extra affärslogik.
     
     Args:
-        bill: Dictionary med fakturadata
+        bill: Bill-objekt att validera
         
     Returns:
         True om strukturen är korrekt, annars False
@@ -79,7 +77,7 @@ def validate_bill_structure(bill: Dict) -> bool:
     pass
 
 
-def write_bills_to_yaml(bills: List[Dict], yaml_path: str) -> None:
+def write_bills_to_yaml(bills: List[Bill], yaml_path: str) -> None:
     """
     Lägger till extraherade fakturor i upcoming_bills.yaml.
     
@@ -87,7 +85,7 @@ def write_bills_to_yaml(bills: List[Dict], yaml_path: str) -> None:
     Undviker dubbletter genom att jämföra namn och förfallodatum.
     
     Args:
-        bills: Lista med validerade fakturor
+        bills: Lista med validerade Bill-objekt
         yaml_path: Sökväg till upcoming_bills.yaml
     """
     pass

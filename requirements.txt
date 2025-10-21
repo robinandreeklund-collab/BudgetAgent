@@ -9,3 +9,4 @@ pyyaml>=6.0
 
 # Testing
 pytest>=7.0.0
+yamllint>=1.26.0

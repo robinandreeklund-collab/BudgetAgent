@@ -155,13 +155,13 @@ def simulate_monthly_balance(months: int) -> List[ForecastData]:
         # Beräkna genomsnittliga utgifter från historik
         historical_avg = calculate_historical_average(hist_data, window=3)
         # Summera genomsnittliga utgifter per månad
-        avg_monthly_expenses = sum(Decimal(str(v)) for v in historical_avg.values()) if historical_avg else Decimal(2000)
+        avg_monthly_expenses = sum(Decimal(str(v)) for v in historical_avg.values()) if historical_avg else Decimal(0)
     else:
-        # Fallback om ingen historik finns
-        avg_monthly_expenses = Decimal(2000)
+        # Ingen historik finns - använd 0 istället för fallback
+        avg_monthly_expenses = Decimal(0)
     
     forecast_data = []
-    current_balance = Decimal(10000)  # Startbalans (skulle kunna hämtas från aktuellt saldo)
+    current_balance = Decimal(0)  # Startbalans på 0 för demo-läge
     today = datetime.now().date()
     
     for month_offset in range(months):

@@ -45,6 +45,10 @@ def cleanup_demo_data():
         income_file = config_dir / "income_tracker.yaml"
         income_file.write_text("income_tracker:\n  incomes: []\n  people: []\n", encoding='utf-8')
         
+        # Töm forecast_engine.yaml
+        forecast_file = config_dir / "forecast_engine.yaml"
+        forecast_file.write_text("forecast_engine:\n  history_window_months: 6\n  categories: []\n  future_income: []\n  future_bills: []\n", encoding='utf-8')
+        
         # Ta bort transaktionsfil
         data_dir = Path(__file__).parent.parent / "data"
         transactions_file = data_dir / "transactions.csv"

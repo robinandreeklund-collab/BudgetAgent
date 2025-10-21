@@ -7,6 +7,34 @@ income_tracker:
     person: Robin
     recurring: true
     source: Lön
+  - amount: 28000.0
+    category: null
+    date: '2025-12-25'
+    frequency: monthly
+    person: Robin
+    recurring: true
+    source: Lön
+  - amount: 25000.0
+    category: null
+    date: '2025-12-25'
+    frequency: monthly
+    person: Partner
+    recurring: true
+    source: Lön
+  - amount: 28000.0
+    category: null
+    date: '2025-12-25'
+    frequency: monthly
+    person: Robin
+    recurring: true
+    source: Lön
+  - amount: 25000.0
+    category: null
+    date: '2025-12-25'
+    frequency: monthly
+    person: Partner
+    recurring: true
+    source: Lön
   people:
   - name: Robin
     one_time_income:

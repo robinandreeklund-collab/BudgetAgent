@@ -860,21 +860,23 @@ def render_dashboard() -> None:
                     f"Nettosaldo: {(total_income + total_expenses):.2f} SEK"
                 ]
                 
-                # Lägg till aktuellt saldo från senaste kontot
+                # Lägg till totalt aktuellt saldo från alla konton
                 if accounts:
-                    # Hitta kontot med senaste balance_date
-                    latest_account = None
-                    latest_date = None
+                    total_balance = Decimal('0')
+                    currency = "SEK"  # Default valuta
+                    accounts_with_balance = 0
                     
                     for acc_name, acc in accounts.items():
-                        if acc.current_balance is not None and acc.balance_date is not None:
-                            if latest_date is None or acc.balance_date > latest_date:
-                                latest_date = acc.balance_date
-                                latest_account = acc
+                        if acc.current_balance is not None:
+                            total_balance += acc.current_balance
+                            accounts_with_balance += 1
+                            # Använd valutan från första kontot med saldo
+                            if accounts_with_balance == 1:
+                                currency = acc.balance_currency
                     
-                    if latest_account and latest_account.current_balance:
+                    if accounts_with_balance > 0:
                         insights_list.append(
-                            f"Aktuellt saldo: {float(latest_account.current_balance):.2f} {latest_account.balance_currency}"
+                            f"Aktuellt saldo: {float(total_balance):.2f} {currency}"
                         )
             else:
                 alerts_list = ["Inga varningar för tillfället"]

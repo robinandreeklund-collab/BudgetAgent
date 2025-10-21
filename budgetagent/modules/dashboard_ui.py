@@ -809,8 +809,8 @@ def render_dashboard() -> None:
     def update_forecast(_):
         """Uppdaterar prognosgrafen."""
         try:
-            # Standardprognos visar nuvarande dag och en månad framåt
-            forecast_data = forecast_engine.simulate_monthly_balance(1)
+            # Standardprognos visar nuvarande dag och en månad framåt (2 datapunkter)
+            forecast_data = forecast_engine.simulate_monthly_balance(2)
             return update_forecast_graph(forecast_data)
         except Exception as e:
             print(f"Fel vid uppdatering av prognos: {e}")

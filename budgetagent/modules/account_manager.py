@@ -101,7 +101,7 @@ def calculate_transaction_hash(transaction: Transaction) -> str:
         SHA256-hash som hexadecimal sträng
     """
     # Skapa en unik sträng från transaktionens nyckelvärden
-    transaction_str = f"{transaction.date}|{transaction.amount}|{transaction.description}"
+    transaction_str = f"{transaction.date}|{transaction.amount}|{transaction.description}|{transaction.currency}"
     
     return hashlib.sha256(transaction_str.encode()).hexdigest()
 

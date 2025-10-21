@@ -93,12 +93,18 @@ def create_app_layout() -> html.Div:
             dcc.Tab(label='Översikt', children=[
                 html.Div([
                     create_forecast_section(),
-                    create_insights_section()
+                    create_insights_section(),
+                    create_expense_distribution_section()
                 ])
             ]),
             dcc.Tab(label='Inmatning', children=[
                 html.Div([
                     input_panel()
+                ])
+            ]),
+            dcc.Tab(label='Konton', children=[
+                html.Div([
+                    accounts_panel()
                 ])
             ]),
             dcc.Tab(label='Agentfrågor', children=[
@@ -143,6 +149,19 @@ def create_insights_section() -> html.Div:
     ], style={'padding': '20px'})
 
 
+def create_expense_distribution_section() -> html.Div:
+    """
+    Skapar sektionen för utgiftsfördelning per kategori.
+    
+    Returns:
+        Dash html.Div med utgiftsfördelning
+    """
+    return html.Div([
+        html.H2("Utgiftsfördelning per kategori"),
+        dcc.Graph(id='expense-distribution-graph')
+    ], style={'padding': '20px'})
+
+
 def input_panel() -> html.Div:
     """
     Skapar formulär för inkomster, fakturor, inställningar.
@@ -178,6 +197,9 @@ def input_panel() -> html.Div:
             multiple=False
         ),
         html.Div(id='upload-feedback', style={'marginBottom': '20px'}),
+        
+        # Kategoriserings- och granskningspanel
+        html.Div(id='categorization-review-panel', style={'marginBottom': '20px'}),
         
         html.Hr(style={'margin': '20px 0'}),
         
@@ -218,6 +240,22 @@ def input_panel() -> html.Div:
         
         # Feedback
         html.Div(id='input-feedback')
+    ], style={'padding': '20px'})
+
+
+def accounts_panel() -> html.Div:
+    """
+    Skapar kontopanelen som visar alla registrerade konton.
+    
+    Returns:
+        Dash layout-objekt med kontoöversikt
+    """
+    return html.Div([
+        html.H2("Kontohantering"),
+        html.P("Här visas alla registrerade bankkonton och deras import-historik."),
+        html.Button('Uppdatera kontoöversikt', id='refresh-accounts-button', n_clicks=0, 
+                   style={'marginBottom': '20px'}),
+        html.Div(id='accounts-container')
     ], style={'padding': '20px'})
 
 
@@ -315,6 +353,112 @@ def settings_panel() -> html.Div:
         html.Button('Spara inställningar', id='save-settings-button', n_clicks=0),
         html.Div(id='settings-feedback')
     ], style={'padding': '20px'})
+
+
+def create_categorization_review_panel(transactions: List[Transaction], filename: str) -> html.Div:
+    """
+    Skapar en panel för att granska och redigera kategoriserade transaktioner.
+    
+    Args:
+        transactions: Lista med kategoriserade transaktioner
+        filename: Filnamn för importen
+        
+    Returns:
+        Dash html.Div med granskningspanel
+    """
+    if not transactions:
+        return html.Div()
+    
+    # Skapa tabell med transaktioner
+    table_rows = []
+    for idx, trans in enumerate(transactions):
+        confidence = float(trans.metadata.get('confidence', 0))
+        needs_review = trans.metadata.get('needs_review') == 'true'
+        
+        # Färgkodning baserat på confidence
+        if confidence >= 0.9:
+            row_color = '#d4edda'  # Grön
+        elif confidence >= 0.7:
+            row_color = '#fff3cd'  # Gul
+        else:
+            row_color = '#f8d7da'  # Röd
+        
+        # Ikon för review-status
+        review_icon = '⚠️ ' if needs_review else '✓ '
+        
+        table_rows.append(
+            html.Tr([
+                html.Td(str(idx + 1), style={'padding': '8px', 'border': '1px solid #ddd'}),
+                html.Td(str(trans.date), style={'padding': '8px', 'border': '1px solid #ddd'}),
+                html.Td(trans.description[:40], style={'padding': '8px', 'border': '1px solid #ddd'}),
+                html.Td(f'{trans.amount} SEK', style={'padding': '8px', 'border': '1px solid #ddd'}),
+                html.Td([
+                    review_icon,
+                    dcc.Dropdown(
+                        id={'type': 'category-select', 'index': idx},
+                        options=[
+                            {'label': 'Mat', 'value': 'Mat'},
+                            {'label': 'Transport', 'value': 'Transport'},
+                            {'label': 'Boende', 'value': 'Boende'},
+                            {'label': 'Nöje', 'value': 'Nöje'},
+                            {'label': 'Kläder', 'value': 'Kläder'},
+                            {'label': 'Hälsa', 'value': 'Hälsa'},
+                            {'label': 'Försäkring', 'value': 'Försäkring'},
+                            {'label': 'Inkomst', 'value': 'Inkomst'},
+                            {'label': 'Okategoriserad', 'value': 'Okategoriserad'}
+                        ],
+                        value=trans.category,
+                        clearable=False,
+                        style={'minWidth': '150px'}
+                    )
+                ], style={'padding': '8px', 'border': '1px solid #ddd'}),
+                html.Td(
+                    f'{confidence:.0%}',
+                    style={
+                        'padding': '8px',
+                        'border': '1px solid #ddd',
+                        'fontWeight': 'bold',
+                        'color': 'green' if confidence >= 0.9 else ('orange' if confidence >= 0.7 else 'red')
+                    }
+                )
+            ], style={'backgroundColor': row_color})
+        )
+    
+    return html.Div([
+        html.H3('Granska kategoriserade transaktioner'),
+        html.P('Justera kategorier om nödvändigt och klicka sedan på "Godkänn och spara" nedan.'),
+        html.Div([
+            html.Table([
+                html.Thead(html.Tr([
+                    html.Th('#', style={'padding': '8px', 'border': '1px solid #ddd', 'backgroundColor': '#f8f9fa'}),
+                    html.Th('Datum', style={'padding': '8px', 'border': '1px solid #ddd', 'backgroundColor': '#f8f9fa'}),
+                    html.Th('Beskrivning', style={'padding': '8px', 'border': '1px solid #ddd', 'backgroundColor': '#f8f9fa'}),
+                    html.Th('Belopp', style={'padding': '8px', 'border': '1px solid #ddd', 'backgroundColor': '#f8f9fa'}),
+                    html.Th('Kategori', style={'padding': '8px', 'border': '1px solid #ddd', 'backgroundColor': '#f8f9fa'}),
+                    html.Th('Säkerhet', style={'padding': '8px', 'border': '1px solid #ddd', 'backgroundColor': '#f8f9fa'})
+                ])),
+                html.Tbody(table_rows)
+            ], style={'width': '100%', 'borderCollapse': 'collapse', 'marginBottom': '20px'})
+        ], style={'maxHeight': '400px', 'overflowY': 'auto', 'border': '1px solid #ddd'}),
+        html.Button('Godkänn och spara transaktioner', id='confirm-import-button', n_clicks=0,
+                   style={
+                       'padding': '10px 20px',
+                       'backgroundColor': '#28a745',
+                       'color': 'white',
+                       'border': 'none',
+                       'borderRadius': '5px',
+                       'fontSize': '16px',
+                       'cursor': 'pointer',
+                       'marginTop': '10px'
+                   }),
+        html.Div(id='confirm-import-feedback', style={'marginTop': '10px'})
+    ], style={
+        'border': '2px solid #007bff',
+        'borderRadius': '10px',
+        'padding': '20px',
+        'backgroundColor': '#f8f9fa',
+        'marginTop': '20px'
+    })
 
 
 def update_forecast_graph(forecast_data: List[ForecastData]) -> go.Figure:
@@ -422,9 +566,13 @@ def render_dashboard() -> None:
     app = Dash(__name__)
     app.layout = create_app_layout()
     
+    # Store för att hålla temporära transaktioner för granskning
+    temp_transactions_store = {'transactions': [], 'filename': ''}
+    
     # Callback för att hantera Nordea CSV-uppladdning
     @app.callback(
         [Output('upload-feedback', 'children'),
+         Output('categorization-review-panel', 'children'),
          Output('data-update-trigger', 'data')],
         Input('upload-nordea-csv', 'contents'),
         State('upload-nordea-csv', 'filename'),
@@ -432,11 +580,14 @@ def render_dashboard() -> None:
         prevent_initial_call=True
     )
     def handle_csv_upload(contents, filename, current_trigger):
-        """Hanterar uppladdning av Nordea CSV-fil."""
+        """Hanterar uppladdning av Nordea CSV-fil med kategorisering."""
         if contents is None:
-            return html.Div(), current_trigger
+            return html.Div(), html.Div(), current_trigger
         
         try:
+            from . import categorize_expenses, account_manager
+            import yaml
+            
             # Dekoda innehållet
             content_type, content_string = contents.split(',')
             decoded = base64.b64decode(content_string)
@@ -453,26 +604,57 @@ def render_dashboard() -> None:
                 return (
                     html.Div([
                         html.Span('⚠️ ', style={'fontSize': '20px'}),
-                        html.Span(f'Inga transaktioner hittades i {filename}')
+                        html.Span(f'Inga transaktioner hittades i {filename} (kan redan vara importerad)')
                     ], style={'color': 'orange', 'padding': '10px', 'backgroundColor': '#fff3cd', 'borderRadius': '5px'}),
+                    html.Div(),
                     current_trigger
                 )
             
-            # Spara transaktionerna till fil
-            parse_transactions.save_transactions(transactions, append=True)
+            # Ladda kategoriseringsregler
+            config_path = Path(__file__).parent.parent / "config" / "categorization_rules.yaml"
+            with open(config_path, 'r', encoding='utf-8') as f:
+                rules = yaml.safe_load(f)
+            
+            # Kategorisera transaktioner
+            categorized_transactions = categorize_expenses.categorize_transactions(transactions, rules)
+            
+            # Spara i temporär store för granskning
+            temp_transactions_store['transactions'] = categorized_transactions
+            temp_transactions_store['filename'] = filename
+            
+            # Räkna kategorier och confidence
+            total_trans = len(categorized_transactions)
+            needs_review = sum(1 for t in categorized_transactions 
+                              if t.metadata.get('needs_review') == 'true')
+            uncategorized = sum(1 for t in categorized_transactions 
+                               if t.category == 'Okategoriserad')
+            
+            # Skapa granskningspanel
+            review_panel = create_categorization_review_panel(
+                categorized_transactions, filename
+            )
             
             feedback = html.Div([
                 html.Span('✅ ', style={'fontSize': '20px'}),
-                html.Span(f'Import lyckades! {len(transactions)} transaktioner importerade och sparade från {filename}'),
+                html.Span(f'Import lyckades! {total_trans} transaktioner laddade från {filename}'),
                 html.Br(),
-                html.Small(f'Första transaktion: {transactions[0].date} - {transactions[0].description} - {transactions[0].amount} SEK', 
-                          style={'color': '#666'}),
                 html.Br(),
-                html.Small('Prognos och insikter uppdaterade automatiskt!', style={'color': '#28a745', 'fontStyle': 'italic', 'fontWeight': 'bold'})
-            ], style={'color': 'green', 'padding': '10px', 'backgroundColor': '#d4edda', 'borderRadius': '5px'})
+                html.Span('📊 Kategorisering: ', style={'fontWeight': 'bold'}),
+                html.Br(),
+                html.Span(f'• {total_trans - uncategorized} kategoriserade automatiskt'),
+                html.Br(),
+                html.Span(f'• {uncategorized} okategoriserade', 
+                         style={'color': 'orange' if uncategorized > 0 else 'green'}),
+                html.Br(),
+                html.Span(f'• {needs_review} behöver granskning',
+                         style={'color': 'red' if needs_review > 0 else 'green'}),
+                html.Br(),
+                html.Br(),
+                html.Small('Granska och godkänn transaktionerna nedan innan import', 
+                          style={'fontStyle': 'italic'})
+            ], style={'color': '#155724', 'padding': '10px', 'backgroundColor': '#d4edda', 'borderRadius': '5px'})
             
-            # Öka trigger för att signalera att data har uppdaterats
-            return feedback, current_trigger + 1
+            return feedback, review_panel, current_trigger
             
         except FileNotFoundError as e:
             return (
@@ -480,6 +662,7 @@ def render_dashboard() -> None:
                     html.Span('❌ ', style={'fontSize': '20px'}),
                     html.Span(f'Fil hittades inte: {str(e)}')
                 ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'}),
+                html.Div(),
                 current_trigger
             )
         except ValueError as e:
@@ -488,14 +671,19 @@ def render_dashboard() -> None:
                     html.Span('❌ ', style={'fontSize': '20px'}),
                     html.Span(f'Felaktigt filformat: {str(e)}')
                 ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'}),
+                html.Div(),
                 current_trigger
             )
         except Exception as e:
+            import traceback
             return (
                 html.Div([
                     html.Span('❌ ', style={'fontSize': '20px'}),
-                    html.Span(f'Fel vid import: {str(e)}')
+                    html.Span(f'Fel vid import: {str(e)}'),
+                    html.Br(),
+                    html.Small(traceback.format_exc(), style={'fontSize': '10px', 'color': '#666'})
                 ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'}),
+                html.Div(),
                 current_trigger
             )
     
@@ -689,6 +877,209 @@ def render_dashboard() -> None:
                 return feedback, fallback_figure
         
         return html.Div(), go.Figure()
+    
+    # Callback för att godkänna och spara transaktioner med uppdaterade kategorier
+    @app.callback(
+        [Output('confirm-import-feedback', 'children'),
+         Output('data-update-trigger', 'data', allow_duplicate=True),
+         Output('categorization-review-panel', 'children', allow_duplicate=True)],
+        Input('confirm-import-button', 'n_clicks'),
+        [State({'type': 'category-select', 'index': i}, 'value') for i in range(100)],  # Max 100 transaktioner
+        prevent_initial_call=True
+    )
+    def confirm_and_save_transactions(n_clicks, *category_values):
+        """Sparar transaktioner med uppdaterade kategorier."""
+        if not n_clicks or not temp_transactions_store['transactions']:
+            return html.Div(), 0, html.Div()
+        
+        try:
+            transactions = temp_transactions_store['transactions']
+            
+            # Uppdatera kategorier baserat på användarens val
+            for idx, trans in enumerate(transactions):
+                if idx < len(category_values) and category_values[idx]:
+                    trans.category = category_values[idx]
+            
+            # Spara transaktionerna
+            parse_transactions.save_transactions(transactions, append=True)
+            
+            # Rensa temporär store
+            saved_count = len(transactions)
+            filename = temp_transactions_store['filename']
+            temp_transactions_store['transactions'] = []
+            temp_transactions_store['filename'] = ''
+            
+            feedback = html.Div([
+                html.Span('✅ ', style={'fontSize': '24px'}),
+                html.Span(f'Perfekt! {saved_count} transaktioner sparade från {filename}'),
+                html.Br(),
+                html.Small('Data uppdaterad - se översikten för uppdaterade grafer!',
+                          style={'fontStyle': 'italic', 'color': '#28a745'})
+            ], style={
+                'color': '#155724',
+                'padding': '15px',
+                'backgroundColor': '#d4edda',
+                'borderRadius': '5px',
+                'marginTop': '10px',
+                'border': '2px solid #28a745'
+            })
+            
+            return feedback, 1, html.Div()  # Trigger uppdatering och rensa review panel
+            
+        except Exception as e:
+            return (
+                html.Div([
+                    html.Span('❌ ', style={'fontSize': '20px'}),
+                    html.Span(f'Fel vid sparande: {str(e)}')
+                ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'}),
+                0,
+                html.Div()
+            )
+    
+    # Callback för att uppdatera kontoöversikt
+    @app.callback(
+        Output('accounts-container', 'children'),
+        [Input('refresh-accounts-button', 'n_clicks'),
+         Input('accounts-container', 'id')]  # Trigger vid sidladdning också
+    )
+    def update_accounts_display(n_clicks, _):
+        """Uppdaterar visningen av registrerade konton."""
+        try:
+            from . import account_manager
+            
+            accounts = account_manager.load_accounts()
+            
+            if not accounts:
+                return html.Div([
+                    html.P('Inga konton registrerade än. Importera en CSV-fil för att skapa ett konto.',
+                          style={'fontStyle': 'italic', 'color': '#666'})
+                ])
+            
+            # Skapa kort för varje konto
+            account_cards = []
+            for account_name, account in accounts.items():
+                card = html.Div([
+                    html.H4(account_name, style={'marginBottom': '10px', 'color': '#007bff'}),
+                    html.P([
+                        html.Strong('Kontonummer: '),
+                        html.Span(account.account_number or 'Ej angivet')
+                    ]),
+                    html.P([
+                        html.Strong('Antal importerade filer: '),
+                        html.Span(str(len(account.imported_files)))
+                    ]),
+                    html.P([
+                        html.Strong('Totalt antal transaktioner: '),
+                        html.Span(str(len(account.transaction_hashes)))
+                    ]),
+                    html.P([
+                        html.Strong('Senaste import: '),
+                        html.Span(str(account.last_import_date) if account.last_import_date else 'Aldrig')
+                    ]),
+                    html.Details([
+                        html.Summary('Visa importhistorik', style={'cursor': 'pointer', 'color': '#007bff'}),
+                        html.Ul([
+                            html.Li(f"{file.get('filename', 'Okänd fil')} - {file.get('import_date', 'Okänt datum')}")
+                            for file in account.imported_files[-10:]  # Visa senaste 10
+                        ])
+                    ]) if account.imported_files else html.Div()
+                ], style={
+                    'border': '1px solid #dee2e6',
+                    'borderRadius': '10px',
+                    'padding': '20px',
+                    'marginBottom': '15px',
+                    'backgroundColor': '#fff',
+                    'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+                })
+                account_cards.append(card)
+            
+            return html.Div([
+                html.P(f'Totalt {len(accounts)} konto(n) registrerade', 
+                      style={'fontWeight': 'bold', 'marginBottom': '20px'}),
+                *account_cards
+            ])
+            
+        except Exception as e:
+            return html.Div(f'Fel vid hämtning av konton: {str(e)}', style={'color': 'red'})
+    
+    # Callback för att uppdatera utgiftsfördelning
+    @app.callback(
+        Output('expense-distribution-graph', 'figure'),
+        [Input('forecast-graph', 'id'),
+         Input('data-update-trigger', 'data')]
+    )
+    def update_expense_distribution(_, trigger_value):
+        """Uppdaterar utgiftsfördelning per kategori."""
+        try:
+            transactions = parse_transactions.load_transactions()
+            
+            if not transactions:
+                fig = go.Figure()
+                fig.add_annotation(
+                    text="Ingen data tillgänglig. Importera transaktioner för att se fördelning.",
+                    xref="paper", yref="paper",
+                    x=0.5, y=0.5, showarrow=False
+                )
+                return fig
+            
+            # Gruppera utgifter per kategori (endast negativa belopp)
+            category_totals = {}
+            for trans in transactions:
+                if trans.amount < 0:  # Endast utgifter
+                    category = trans.category or 'Okategoriserad'
+                    category_totals[category] = category_totals.get(category, 0) + abs(float(trans.amount))
+            
+            if not category_totals:
+                fig = go.Figure()
+                fig.add_annotation(
+                    text="Inga utgifter att visa",
+                    xref="paper", yref="paper",
+                    x=0.5, y=0.5, showarrow=False
+                )
+                return fig
+            
+            # Sortera kategorier efter storlek
+            sorted_categories = sorted(category_totals.items(), key=lambda x: x[1], reverse=True)
+            categories = [cat for cat, _ in sorted_categories]
+            amounts = [amt for _, amt in sorted_categories]
+            
+            # Skapa färgschema
+            colors = px.colors.qualitative.Set3[:len(categories)]
+            
+            # Skapa cirkeldiagram
+            fig = go.Figure(data=[go.Pie(
+                labels=categories,
+                values=amounts,
+                hole=0.3,
+                marker=dict(colors=colors),
+                textinfo='label+percent',
+                textposition='auto',
+                hovertemplate='<b>%{label}</b><br>%{value:.2f} SEK<br>%{percent}<extra></extra>'
+            )])
+            
+            fig.update_layout(
+                title='Utgiftsfördelning per kategori',
+                height=500,
+                showlegend=True,
+                legend=dict(
+                    orientation="v",
+                    yanchor="middle",
+                    y=0.5,
+                    xanchor="left",
+                    x=1.05
+                )
+            )
+            
+            return fig
+            
+        except Exception as e:
+            fig = go.Figure()
+            fig.add_annotation(
+                text=f"Fel: {str(e)}",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False
+            )
+            return fig
     
     # Kör server
     app.run(debug=True, host='0.0.0.0', port=8050)

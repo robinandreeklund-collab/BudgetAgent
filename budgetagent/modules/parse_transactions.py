@@ -7,6 +7,8 @@ extrahering av metadata som butik, kategori och plats.
 """
 
 import pandas as pd
+from typing import List
+from .models import Transaction
 
 
 def parse_dates(data: pd.DataFrame) -> pd.DataFrame:

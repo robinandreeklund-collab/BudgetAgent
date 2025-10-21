@@ -17,9 +17,10 @@ Exempel på YAML-konfiguration kan hämtas från settings_panel.yaml:
 
 import pandas as pd
 from typing import List, Dict
+from .models import AlertConfig, Transaction, Bill
 
 
-def check_budget_thresholds(data: pd.DataFrame, thresholds: Dict) -> List[str]:
+def check_budget_thresholds(data: pd.DataFrame, alert_config: AlertConfig) -> List[str]:
     """
     Kontrollerar budgettrösklar och genererar varningar, t.ex. "Matkostnad över 4000 kr!".
     
@@ -28,7 +29,7 @@ def check_budget_thresholds(data: pd.DataFrame, thresholds: Dict) -> List[str]:
     
     Args:
         data: DataFrame med utgiftsdata
-        thresholds: Dictionary med tröskelvärden per kategori
+        alert_config: AlertConfig-objekt med tröskelvärden och inställningar
         
     Returns:
         Lista med varningsmeddelanden

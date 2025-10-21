@@ -14,7 +14,8 @@ Exempel på YAML-konfiguration kan laddas från categorization_rules.yaml:
 """
 
 import pandas as pd
-from typing import Dict, Optional
+from typing import Dict, Optional, List
+from .models import Transaction
 
 
 def auto_categorize(data: pd.DataFrame, rules: Dict) -> pd.DataFrame:
@@ -60,5 +61,23 @@ def update_category_map(new_rules: Dict) -> None:
     
     Args:
         new_rules: Dictionary med nya kategoriseringsregler
+    """
+    pass
+
+
+def categorize_transactions(transactions: List[Transaction], rules: Dict) -> List[Transaction]:
+    """
+    Kategoriserar en lista av Transaction-objekt.
+    
+    Huvudfunktion för att kategorisera transaktioner från andra moduler.
+    Används av import_bank_data och parse_transactions för att tilldela
+    kategorier till importerade transaktioner.
+    
+    Args:
+        transactions: Lista med Transaction-objekt
+        rules: Dictionary med kategoriseringsregler från YAML
+        
+    Returns:
+        Lista med kategoriserade Transaction-objekt
     """
     pass

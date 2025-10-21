@@ -17,6 +17,7 @@ Exempel på YAML-konfiguration (forecast_engine.yaml):
 
 import pandas as pd
 from typing import Dict, List
+from .models import Bill, Income, ForecastData, Scenario, Transaction
 
 
 def calculate_historical_average(data: pd.DataFrame, window: int) -> Dict:
@@ -36,7 +37,7 @@ def calculate_historical_average(data: pd.DataFrame, window: int) -> Dict:
     pass
 
 
-def inject_future_income_and_bills(income: List, bills: List) -> Dict:
+def inject_future_income_and_bills(income: List[Income], bills: List[Bill]) -> Dict:
     """
     Skapar framtida kassaflöde.
     
@@ -44,8 +45,8 @@ def inject_future_income_and_bills(income: List, bills: List) -> Dict:
     en prognos över framtida kassaflöde.
     
     Args:
-        income: Lista med planerade inkomster
-        bills: Lista med kommande fakturor
+        income: Lista med Income-objekt
+        bills: Lista med Bill-objekt
         
     Returns:
         Dictionary med projicerat kassaflöde per månad
@@ -53,7 +54,7 @@ def inject_future_income_and_bills(income: List, bills: List) -> Dict:
     pass
 
 
-def simulate_monthly_balance(months: int) -> pd.DataFrame:
+def simulate_monthly_balance(months: int) -> List[ForecastData]:
     """
     Returnerar saldo per månad.
     
@@ -64,12 +65,12 @@ def simulate_monthly_balance(months: int) -> pd.DataFrame:
         months: Antal månader framåt att simulera
         
     Returns:
-        DataFrame med simulerat saldo per månad
+        Lista med ForecastData-objekt per månad
     """
     pass
 
 
-def compare_scenarios(scenarios: List[Dict]) -> Dict:
+def compare_scenarios(scenarios: List[Scenario]) -> Dict[str, List[ForecastData]]:
     """
     Jämför olika scenarier, t.ex. "Vad händer om vi får 5000 kr extra i januari?".
     
@@ -77,10 +78,9 @@ def compare_scenarios(scenarios: List[Dict]) -> Dict:
     för att stödja ekonomiskt beslutsfattande.
     
     Args:
-        scenarios: Lista med scenariodefinitioner, var och en innehåller
-                  modifieringar av inkomster eller utgifter
+        scenarios: Lista med Scenario-objekt
         
     Returns:
-        Dictionary med jämförande resultat för varje scenario
+        Dictionary med scenarionamn som nyckel och prognosdata som värde
     """
     pass

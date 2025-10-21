@@ -1,0 +1,3 @@
+"""Test UI interaction."""
+
+pass

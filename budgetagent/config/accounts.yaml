@@ -6,9 +6,9 @@ accounts:
     balance_date: '2025-10-15'
     current_balance: '623.14'
     imported_files:
-    - checksum: 1740044f11a3653d61c7d0cf7b950043
-      filename: PERSONKONTO_1709_20_72840_-_2025-10-21_09.39.41.csv
-      import_date: '2025-10-21T14:25:38.883452'
+      - checksum: 1740044f11a3653d61c7d0cf7b950043
+        filename: PERSONKONTO_1709_20_72840_-_2025-10-21_09.39.41.csv
+        import_date: '2025-10-21T14:25:38.883452'
     last_import_date: '2025-10-21T14:25:38.883458'
     transaction_hashes: []
   SPARKONTO_9876_54_32100_-:
@@ -18,9 +18,9 @@ accounts:
     balance_date: '2025-10-20'
     current_balance: '15500.0'
     imported_files:
-    - checksum: 4a0c149f983d29cff9d9f908742d5ac9
-      filename: SPARKONTO_9876_54_32100_-_2025-10-21_10.00.00.csv
-      import_date: '2025-10-21T14:26:29.069884'
+      - checksum: 4a0c149f983d29cff9d9f908742d5ac9
+        filename: SPARKONTO_9876_54_32100_-_2025-10-21_10.00.00.csv
+        import_date: '2025-10-21T14:26:29.069884'
     last_import_date: '2025-10-21T14:26:29.069890'
     transaction_hashes: []
   empty_nordea:
@@ -30,9 +30,9 @@ accounts:
     balance_date: null
     current_balance: null
     imported_files:
-    - checksum: 206bec5bd5b0053f9fb20458c73cca08
-      filename: empty_nordea.csv
-      import_date: '2025-10-21T10:37:03.128566'
+      - checksum: 206bec5bd5b0053f9fb20458c73cca08
+        filename: empty_nordea.csv
+        import_date: '2025-10-21T10:37:03.128566'
     last_import_date: '2025-10-21T10:37:03.128571'
     transaction_hashes: []
   nordea_no_rubrik:
@@ -42,12 +42,12 @@ accounts:
     balance_date: null
     current_balance: null
     imported_files:
-    - checksum: 1af853eee644bb97d50db2a9618dc49a
-      filename: nordea_no_rubrik.csv
-      import_date: '2025-10-21T10:37:03.144126'
+      - checksum: 1af853eee644bb97d50db2a9618dc49a
+        filename: nordea_no_rubrik.csv
+        import_date: '2025-10-21T10:37:03.144126'
     last_import_date: '2025-10-21T10:37:03.144131'
     transaction_hashes:
-    - 141593f89c6f14369af18bdcce7c6b4d79e167619c6acf156940dc3b76abe539
+      - 141593f89c6f14369af18bdcce7c6b4d79e167619c6acf156940dc3b76abe539
   nordea_semicolon:
     account_name: nordea_semicolon
     account_number: null
@@ -55,13 +55,13 @@ accounts:
     balance_date: null
     current_balance: null
     imported_files:
-    - checksum: 74da14c2a708fdbfbda070992d6cd098
-      filename: nordea_semicolon.csv
-      import_date: '2025-10-21T10:37:03.165978'
+      - checksum: 74da14c2a708fdbfbda070992d6cd098
+        filename: nordea_semicolon.csv
+        import_date: '2025-10-21T10:37:03.165978'
     last_import_date: '2025-10-21T10:37:03.165984'
     transaction_hashes:
-    - cfb09d0d9e990020a4960ad5224a2878a1c690f4f6a60fe5e7d7c12e3b9adc56
-    - d69b44460bfa66d7f8cf6c3e249a8079bd8f1869089c1445a8f181b55e423a14
+      - cfb09d0d9e990020a4960ad5224a2878a1c690f4f6a60fe5e7d7c12e3b9adc56
+      - d69b44460bfa66d7f8cf6c3e249a8079bd8f1869089c1445a8f181b55e423a14
   test_nordea:
     account_name: test_nordea
     account_number: null
@@ -69,11 +69,11 @@ accounts:
     balance_date: null
     current_balance: null
     imported_files:
-    - checksum: 5e2c7a1944afe316641b1a497b3d462e
-      filename: test_nordea.csv
-      import_date: '2025-10-21T10:37:03.120311'
+      - checksum: 5e2c7a1944afe316641b1a497b3d462e
+        filename: test_nordea.csv
+        import_date: '2025-10-21T10:37:03.120311'
     last_import_date: '2025-10-21T10:37:03.120318'
     transaction_hashes:
-    - 8989cd773786d5229cc3ac8bb8ce58a209cbecf5156f6af2501b47f77d33ebc6
-    - 5f7e124d0dd2a4c0df95e9f1070098889f309e9bc14745db99302ebbdf7b4ea5
-    - 1c4b5ef006e60ab915b0b2de3c9e230f2cde1f0a31bca03b758689de1e68e7d4
+      - 8989cd773786d5229cc3ac8bb8ce58a209cbecf5156f6af2501b47f77d33ebc6
+      - 5f7e124d0dd2a4c0df95e9f1070098889f309e9bc14745db99302ebbdf7b4ea5
+      - 1c4b5ef006e60ab915b0b2de3c9e230f2cde1f0a31bca03b758689de1e68e7d4

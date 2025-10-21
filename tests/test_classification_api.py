@@ -30,6 +30,21 @@ def client():
 @pytest.fixture
 def setup_test_data():
     """Sätter upp testdata innan varje test."""
+    # Spara original metoder
+    original_save = store.save_to_yaml
+    original_update = classifier._update_model_metadata
+    original_load = store.load_from_yaml
+    
+    # Mock save_to_yaml och _update_model_metadata för att förhindra skrivning till disk
+    store.save_to_yaml = lambda: None
+    classifier._update_model_metadata = lambda training_count: None
+    
+    # Mock load_from_yaml men behåll state
+    def mock_load():
+        # Ladda inte från disk, använd befintlig state
+        pass
+    store.load_from_yaml = mock_load
+    
     # Rensa store
     store.training_examples = []
     store.assigned_categories = {}
@@ -40,6 +55,11 @@ def setup_test_data():
     classifier.model = None
     
     yield
+    
+    # Återställ original metoder
+    store.save_to_yaml = original_save
+    classifier._update_model_metadata = original_update
+    store.load_from_yaml = original_load
     
     # Cleanup efter test
     store.training_examples = []

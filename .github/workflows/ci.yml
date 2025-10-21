@@ -31,8 +31,8 @@ jobs:
     
     - name: Kör pytest
       run: |
-        python -m pytest budgetagent/tests/ -v --tb=short
+        python -m pytest budgetagent/tests/ tests/ -v --tb=short
     
     - name: Kör yamllint på config-filer
       run: |
-        yamllint budgetagent/config/*.yaml
+        yamllint budgetagent/config/*.yaml category_schema.yaml

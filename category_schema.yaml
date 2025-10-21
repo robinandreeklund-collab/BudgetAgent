@@ -5,71 +5,71 @@ categories:
     display_name: Boende
     icon: home
     keywords:
-    - hyra
-    - elräkning
-    - vatten
-    - bredband
+      - hyra
+      - elräkning
+      - vatten
+      - bredband
   försäkring:
     color: '#607D8B'
     display_name: Försäkring
     icon: shield
     keywords:
-    - försäkring
-    - if försäkring
-    - folksam
+      - försäkring
+      - if försäkring
+      - folksam
   hälsa:
     color: '#00BCD4'
     display_name: Hälsa
     icon: medical
     keywords:
-    - apoteket
-    - läkare
-    - tandläkare
+      - apoteket
+      - läkare
+      - tandläkare
   inkomst:
     color: '#8BC34A'
     display_name: Inkomst
     icon: money
     keywords:
-    - lön
-    - salary
-    - utbetalning
+      - lön
+      - salary
+      - utbetalning
   kläder:
     color: '#E91E63'
     display_name: Kläder
     icon: shirt
     keywords:
-    - h&m
-    - zara
-    - kappahl
+      - h&m
+      - zara
+      - kappahl
   mat:
     color: '#4CAF50'
     display_name: Mat
     icon: shopping-cart
     keywords:
-    - ica
-    - coop
-    - willys
-    - hemköp
-    - lidl
+      - ica
+      - coop
+      - willys
+      - hemköp
+      - lidl
   nöje:
     color: '#9C27B0'
     display_name: Nöje
     icon: music
     keywords:
-    - spotify
-    - netflix
-    - bio
-    - konsert
+      - spotify
+      - netflix
+      - bio
+      - konsert
   transport:
     color: '#FF9800'
     display_name: Transport
     icon: car
     keywords:
-    - bensin
-    - circle k
-    - shell
-    - sl
-    - uber
+      - bensin
+      - circle k
+      - shell
+      - sl
+      - uber
   övrigt:
     color: '#9E9E9E'
     display_name: Övrigt
@@ -114,27 +114,27 @@ persisted_settings:
     transactions_per_page: 50
 preview_sessions: []
 training_examples:
-- category: mat
-  confidence: 1.0
-  date_added: '2025-10-21T20:12:09.751812'
-  description: ICA Maxi
-  source: manual
-  transaction_id: train_0
-- category: mat
-  confidence: 1.0
-  date_added: '2025-10-21T20:12:09.762791'
-  description: Coop Extra
-  source: manual
-  transaction_id: train_1
-- category: transport
-  confidence: 1.0
-  date_added: '2025-10-21T20:12:09.772623'
-  description: Circle K
-  source: manual
-  transaction_id: train_2
-- category: transport
-  confidence: 1.0
-  date_added: '2025-10-21T20:12:09.783276'
-  description: Shell
-  source: manual
-  transaction_id: train_3
+  - category: mat
+    confidence: 1.0
+    date_added: '2025-10-21T20:12:09.751812'
+    description: ICA Maxi
+    source: manual
+    transaction_id: train_0
+  - category: mat
+    confidence: 1.0
+    date_added: '2025-10-21T20:12:09.762791'
+    description: Coop Extra
+    source: manual
+    transaction_id: train_1
+  - category: transport
+    confidence: 1.0
+    date_added: '2025-10-21T20:12:09.772623'
+    description: Circle K
+    source: manual
+    transaction_id: train_2
+  - category: transport
+    confidence: 1.0
+    date_added: '2025-10-21T20:12:09.783276'
+    description: Shell
+    source: manual
+    transaction_id: train_3

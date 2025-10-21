@@ -81,35 +81,3 @@ budgetagent/
 ├── README.md
 └── requirements.txt
 
-🚀 Kom igång
-Klona repot:
-
-bash
-git clone https://github.com/dittnamn/budgetagent.git
-cd budgetagent
-Installera beroenden:
-
-bash
-pip install -r requirements.txt
-Starta dashboarden:
-
-bash
-streamlit run modules/dashboard_ui.py
-🧪 Testning
-Kör alla tester med:
-
-bash
-pytest tests/
-🛠️ Anpassning
-Ändra inställningar i config/settings_panel.yaml
-
-Lägg till egna fördelningsregler i net_balance_splitter.yaml
-
-Justera forecast-fönster i forecast_engine.yaml
-
-🤝 Bidra
-Alla moduler är dokumenterade och testade. Se config/test_plan.yaml för att förstå testflödet. Nya contributors kan börja med att läsa project_structure.yaml och settings_panel.yaml.
-
-📜 Licens
-MIT License – använd, modifiera och dela fritt.
-

@@ -491,6 +491,24 @@ def import_and_parse(file_path: str, check_duplicates: bool = True) -> List[Tran
         # Markera filen som importerad
         account_manager.add_imported_file(account_name, file_path)
         
+        # Lägg till i import-index
+        try:
+            filename = Path(file_path).name
+            checksum = account_manager.calculate_file_checksum(file_path)
+            transaction_hashes = [
+                account_manager.calculate_transaction_hash(tx) 
+                for tx in new_transactions
+            ]
+            account_manager.add_import_to_index(
+                filename=filename,
+                checksum=checksum,
+                account=account_name,
+                transaction_count=len(new_transactions),
+                transaction_hashes=transaction_hashes
+            )
+        except Exception as e:
+            print(f"Varning: Kunde inte uppdatera import-index: {e}")
+        
         return new_transactions
     
     return transactions

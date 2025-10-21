@@ -836,6 +836,10 @@ def render_dashboard() -> None:
             # Ladda faktiska transaktioner
             transactions = parse_transactions.load_transactions()
             
+            # Ladda konton för att hämta aktuellt saldo
+            from . import account_manager
+            accounts = account_manager.load_accounts()
+            
             # Uppdatera prognos med aktuell data
             forecast_data = forecast_engine.simulate_monthly_balance(6)
             new_figure = update_forecast_graph(forecast_data)
@@ -855,6 +859,23 @@ def render_dashboard() -> None:
                     f"Totala inkomster: {total_income:.2f} SEK",
                     f"Nettosaldo: {(total_income + total_expenses):.2f} SEK"
                 ]
+                
+                # Lägg till aktuellt saldo från senaste kontot
+                if accounts:
+                    # Hitta kontot med senaste balance_date
+                    latest_account = None
+                    latest_date = None
+                    
+                    for acc_name, acc in accounts.items():
+                        if acc.current_balance is not None and acc.balance_date is not None:
+                            if latest_date is None or acc.balance_date > latest_date:
+                                latest_date = acc.balance_date
+                                latest_account = acc
+                    
+                    if latest_account and latest_account.current_balance:
+                        insights_list.append(
+                            f"Aktuellt saldo: {float(latest_account.current_balance):.2f} {latest_account.balance_currency}"
+                        )
             else:
                 alerts_list = ["Inga varningar för tillfället"]
                 insights_list = ["Importera Nordea CSV-filer för att se insikter"]

@@ -54,6 +54,7 @@ def add_bill(bill: Bill) -> None:
         'amount': float(bill.amount),
         'due_date': bill.due_date.isoformat(),
         'category': bill.category,
+        'account': bill.account,
         'recurring': bill.recurring,
         'frequency': bill.frequency,
         'paid': bill.paid
@@ -128,6 +129,7 @@ def get_upcoming_bills(month: str) -> List[Bill]:
                 amount=Decimal(str(bill_dict['amount'])),
                 due_date=due_date,
                 category=bill_dict['category'],
+                account=bill_dict.get('account'),
                 recurring=bill_dict.get('recurring', False),
                 frequency=bill_dict.get('frequency'),
                 paid=bill_dict.get('paid', False),
@@ -139,6 +141,155 @@ def get_upcoming_bills(month: str) -> List[Bill]:
             continue
     
     return bills
+
+
+def get_all_bills() -> List[Bill]:
+    """
+    Returnerar alla fakturor oavsett månad.
+    
+    Returns:
+        Lista med alla Bill-objekt
+    """
+    import yaml
+    from pathlib import Path
+    from datetime import datetime
+    from decimal import Decimal
+    
+    config_path = Path(__file__).parent.parent / "config" / "upcoming_bills.yaml"
+    
+    if not config_path.exists():
+        return []
+    
+    with open(config_path, 'r', encoding='utf-8') as f:
+        data = yaml.safe_load(f) or {}
+    
+    if 'upcoming_bills' not in data or 'bills' not in data['upcoming_bills']:
+        return []
+    
+    bills = []
+    for bill_dict in data['upcoming_bills']['bills']:
+        try:
+            # Parsa due_date
+            due_date = datetime.fromisoformat(bill_dict['due_date']).date()
+            
+            # Konvertera till Bill-objekt
+            payment_date = None
+            if 'payment_date' in bill_dict and bill_dict['payment_date']:
+                payment_date = datetime.fromisoformat(bill_dict['payment_date']).date()
+            
+            bill = Bill(
+                name=bill_dict['name'],
+                amount=Decimal(str(bill_dict['amount'])),
+                due_date=due_date,
+                category=bill_dict['category'],
+                account=bill_dict.get('account'),
+                recurring=bill_dict.get('recurring', False),
+                frequency=bill_dict.get('frequency'),
+                paid=bill_dict.get('paid', False),
+                payment_date=payment_date
+            )
+            bills.append(bill)
+        except Exception as e:
+            print(f"Kunde inte parsa faktura: {e}")
+            continue
+    
+    return bills
+
+
+def update_bill(old_bill_name: str, old_bill_due_date: str, updated_bill: Bill) -> bool:
+    """
+    Uppdaterar en befintlig faktura.
+    
+    Args:
+        old_bill_name: Namn på fakturan att uppdatera
+        old_bill_due_date: Förfallodatum för fakturan att uppdatera (ISO format)
+        updated_bill: Nytt Bill-objekt med uppdaterad information
+        
+    Returns:
+        True om uppdateringen lyckades, False annars
+    """
+    import yaml
+    from pathlib import Path
+    
+    config_path = Path(__file__).parent.parent / "config" / "upcoming_bills.yaml"
+    
+    if not config_path.exists():
+        return False
+    
+    with open(config_path, 'r', encoding='utf-8') as f:
+        data = yaml.safe_load(f) or {}
+    
+    if 'upcoming_bills' not in data or 'bills' not in data['upcoming_bills']:
+        return False
+    
+    # Hitta och uppdatera fakturan
+    updated = False
+    for i, bill_dict in enumerate(data['upcoming_bills']['bills']):
+        if bill_dict.get('name') == old_bill_name and bill_dict.get('due_date') == old_bill_due_date:
+            # Uppdatera fakturan
+            data['upcoming_bills']['bills'][i] = {
+                'name': updated_bill.name,
+                'amount': float(updated_bill.amount),
+                'due_date': updated_bill.due_date.isoformat(),
+                'category': updated_bill.category,
+                'account': updated_bill.account,
+                'recurring': updated_bill.recurring,
+                'frequency': updated_bill.frequency,
+                'paid': updated_bill.paid
+            }
+            
+            if updated_bill.payment_date:
+                data['upcoming_bills']['bills'][i]['payment_date'] = updated_bill.payment_date.isoformat()
+            
+            updated = True
+            break
+    
+    if updated:
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(data, f, allow_unicode=True, default_flow_style=False)
+    
+    return updated
+
+
+def delete_bill(bill_name: str, bill_due_date: str) -> bool:
+    """
+    Tar bort en faktura.
+    
+    Args:
+        bill_name: Namn på fakturan att ta bort
+        bill_due_date: Förfallodatum för fakturan (ISO format)
+        
+    Returns:
+        True om borttagningen lyckades, False annars
+    """
+    import yaml
+    from pathlib import Path
+    
+    config_path = Path(__file__).parent.parent / "config" / "upcoming_bills.yaml"
+    
+    if not config_path.exists():
+        return False
+    
+    with open(config_path, 'r', encoding='utf-8') as f:
+        data = yaml.safe_load(f) or {}
+    
+    if 'upcoming_bills' not in data or 'bills' not in data['upcoming_bills']:
+        return False
+    
+    # Filtrera bort fakturan
+    original_count = len(data['upcoming_bills']['bills'])
+    data['upcoming_bills']['bills'] = [
+        bill for bill in data['upcoming_bills']['bills']
+        if not (bill.get('name') == bill_name and bill.get('due_date') == bill_due_date)
+    ]
+    
+    deleted = len(data['upcoming_bills']['bills']) < original_count
+    
+    if deleted:
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(data, f, allow_unicode=True, default_flow_style=False)
+    
+    return deleted
 
 
 def validate_bill_format(bill: Bill) -> bool:

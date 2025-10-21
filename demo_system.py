@@ -82,7 +82,7 @@ def main():
         try:
             add_bill(bill)
             print(f"✓ Lade till faktura: {bill.name} ({bill.amount} SEK)")
-        except Exception as e:
+        except ValueError as e:
             print(f"  (Faktura redan tillagd eller fel: {e})")
     
     # Hämta fakturor för december

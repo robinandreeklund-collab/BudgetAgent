@@ -1,0 +1,12 @@
+parse_pdf_bills:
+  ocr_enabled:
+    type: toggle
+    default: false
+  default_category:
+    type: dropdown
+    options: ["Boende", "Mat", "Transport", "Nöje", "Övrigt"]
+    default: "Boende"
+  date_format:
+    type: dropdown
+    options: ["YYYY-MM-DD", "DD-MM-YYYY", "YYYY/MM/DD"]
+    default: "YYYY-MM-DD"

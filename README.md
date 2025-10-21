@@ -28,6 +28,7 @@ BudgetAgent är ett modulärt, agentvänligt system för att hantera hushållsek
 | `alerts_and_insights` | Varningar och rekommendationer baserat på budgetmål |
 | `dashboard_ui` | Interaktiv visualisering via Streamlit eller Dash |
 | `settings_panel` | Granulär kontroll över alla inställningar och regler |
+| `parse_pdf_bills` | Extraherar fakturainformation från PDF-filer och konverterar till YAML-format |
 
 ## 📋 Status: Modulimplementering
 
@@ -42,6 +43,7 @@ BudgetAgent är ett modulärt, agentvänligt system för att hantera hushållsek
 - [x] **alerts_and_insights.py** - Struktur, docstrings, funktionssignaturer ✓
 - [x] **dashboard_ui.py** - Struktur, docstrings, funktionssignaturer ✓
 - [x] **settings_panel.py** - Struktur, docstrings, funktionssignaturer ✓
+- [x] **parse_pdf_bills.py** - Struktur, docstrings, funktionssignaturer ✓
 
 ### 📝 Moduldetaljer
 Alla moduler innehåller:

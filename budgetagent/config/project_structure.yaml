@@ -11,13 +11,14 @@ project:
     - alerts_and_insights
     - dashboard_ui
     - settings_panel
+    - parse_pdf_bills
   flow:
     - step: "Import bank data"
       module: import_bank_data
     - step: "Parse and categorize"
       module: parse_transactions
     - step: "Add bills and income"
-      modules: [upcoming_bills, income_tracker]
+      modules: [upcoming_bills, income_tracker, parse_pdf_bills]
     - step: "Forecast and split"
       modules: [forecast_engine, net_balance_splitter]
     - step: "Visualize and interact"

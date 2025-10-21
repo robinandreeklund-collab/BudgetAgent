@@ -13,7 +13,7 @@ Exempel på YAML-konfiguration används från flera filer:
 
 import pandas as pd
 from typing import Optional, List, Dict
-from dash import Dash, html, dcc, Input, Output, State, ALL
+from dash import Dash, html, dcc, Input, Output, State, ALL, MATCH
 import plotly.graph_objects as go
 import plotly.express as px
 from .models import Transaction, Bill, Income, ForecastData
@@ -423,7 +423,9 @@ def create_categorization_review_panel(transactions: List[Transaction], filename
                         value=trans.category,
                         clearable=False,
                         style={'minWidth': '150px'}
-                    )
+                    ),
+                    # Hidden store to hold selected category
+                    dcc.Store(id={'type': 'category-store', 'index': idx}, data=trans.category)
                 ], style={'padding': '8px', 'border': '1px solid #ddd'}),
                 html.Td(
                     f'{confidence:.0%}',
@@ -891,13 +893,23 @@ def render_dashboard() -> None:
         
         return html.Div(), go.Figure()
     
+    # Callback för uppdatering av kategorier (dynamisk per transaktion)
+    @app.callback(
+        Output({'type': 'category-store', 'index': MATCH}, 'data'),
+        Input({'type': 'category-select', 'index': MATCH}, 'value'),
+        prevent_initial_call=True
+    )
+    def update_category_store(selected_category):
+        """Lagrar vald kategori för varje transaktion."""
+        return selected_category
+    
     # Callback för att godkänna och spara transaktioner med uppdaterade kategorier
     @app.callback(
         [Output('confirm-import-feedback', 'children'),
          Output('data-update-trigger', 'data', allow_duplicate=True),
          Output('categorization-review-panel', 'children', allow_duplicate=True)],
         Input('confirm-import-button', 'n_clicks'),
-        State({'type': 'category-select', 'index': ALL}, 'value'),
+        State({'type': 'category-store', 'index': ALL}, 'data'),
         prevent_initial_call=True
     )
     def confirm_and_save_transactions(n_clicks, category_values):
@@ -908,8 +920,7 @@ def render_dashboard() -> None:
         try:
             transactions = temp_transactions_store['transactions']
             
-            # Uppdatera kategorier baserat på användarens val
-            # category_values är nu en lista som matchar antalet dropdowns
+            # Uppdatera kategorier baserat på användarens val från stores
             for idx, trans in enumerate(transactions):
                 if idx < len(category_values) and category_values[idx]:
                     trans.category = category_values[idx]

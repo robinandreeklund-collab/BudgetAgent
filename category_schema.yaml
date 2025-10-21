@@ -1,0 +1,140 @@
+accounts: null
+categories:
+  boende:
+    color: '#2196F3'
+    display_name: Boende
+    icon: home
+    keywords:
+    - hyra
+    - elräkning
+    - vatten
+    - bredband
+  försäkring:
+    color: '#607D8B'
+    display_name: Försäkring
+    icon: shield
+    keywords:
+    - försäkring
+    - if försäkring
+    - folksam
+  hälsa:
+    color: '#00BCD4'
+    display_name: Hälsa
+    icon: medical
+    keywords:
+    - apoteket
+    - läkare
+    - tandläkare
+  inkomst:
+    color: '#8BC34A'
+    display_name: Inkomst
+    icon: money
+    keywords:
+    - lön
+    - salary
+    - utbetalning
+  kläder:
+    color: '#E91E63'
+    display_name: Kläder
+    icon: shirt
+    keywords:
+    - h&m
+    - zara
+    - kappahl
+  mat:
+    color: '#4CAF50'
+    display_name: Mat
+    icon: shopping-cart
+    keywords:
+    - ica
+    - coop
+    - willys
+    - hemköp
+    - lidl
+  nöje:
+    color: '#9C27B0'
+    display_name: Nöje
+    icon: music
+    keywords:
+    - spotify
+    - netflix
+    - bio
+    - konsert
+  transport:
+    color: '#FF9800'
+    display_name: Transport
+    icon: car
+    keywords:
+    - bensin
+    - circle k
+    - shell
+    - sl
+    - uber
+  övrigt:
+    color: '#9E9E9E'
+    display_name: Övrigt
+    icon: dots
+    keywords: []
+model_metadata:
+  accuracy_metrics:
+    f1_score: null
+    precision: null
+    recall: null
+  categories_count: 2
+  last_trained: '2025-10-21T20:12:09.736588'
+  min_examples_required: 2
+  model_type: hybrid
+  model_version: 1.0.0
+  tfidf_enabled: true
+  training_count: 4
+persisted_settings:
+  classification:
+    ai_min_confidence: 0.5
+    confidence_threshold: 0.7
+    flag_low_confidence: true
+    use_ai_fallback: true
+    use_rules: true
+  notifications:
+    notify_on_low_confidence: true
+    notify_on_new_categories: false
+    notify_on_training_complete: true
+  persistence:
+    backup_on_change: false
+    save_assigned_categories: true
+    save_training_examples: true
+  training:
+    auto_train_enabled: true
+    auto_train_threshold: 2
+    min_examples_per_category: 2
+    retrain_on_new_examples: true
+  ui:
+    auto_preview_on_load: false
+    enable_bulk_operations: true
+    show_confidence_scores: true
+    transactions_per_page: 50
+preview_sessions: []
+training_examples:
+- category: mat
+  confidence: 1.0
+  date_added: '2025-10-21T20:12:09.751812'
+  description: ICA Maxi
+  source: manual
+  transaction_id: train_0
+- category: mat
+  confidence: 1.0
+  date_added: '2025-10-21T20:12:09.762791'
+  description: Coop Extra
+  source: manual
+  transaction_id: train_1
+- category: transport
+  confidence: 1.0
+  date_added: '2025-10-21T20:12:09.772623'
+  description: Circle K
+  source: manual
+  transaction_id: train_2
+- category: transport
+  confidence: 1.0
+  date_added: '2025-10-21T20:12:09.783276'
+  description: Shell
+  source: manual
+  transaction_id: train_3

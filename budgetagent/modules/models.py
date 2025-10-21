@@ -74,6 +74,7 @@ class Bill(BaseModel):
         amount: Belopp att betala
         due_date: Förfallodatum
         category: Kategori (t.ex. "Boende", "Försäkring")
+        account: Konto som fakturan ska belaста (valfritt)
         recurring: Om fakturan är återkommande
         frequency: Frekvens om återkommande (monthly, yearly, etc.)
         paid: Om fakturan är betald
@@ -83,6 +84,7 @@ class Bill(BaseModel):
     amount: Decimal
     due_date: date
     category: str
+    account: Optional[str] = None
     recurring: bool = False
     frequency: Optional[Literal["monthly", "quarterly", "yearly"]] = None
     paid: bool = False
@@ -132,6 +134,7 @@ class Income(BaseModel):
         source: Inkomstkälla (t.ex. "Lön", "Frilans", "Bonus")
         amount: Belopp
         date: Datum för inkomsten
+        account: Konto som inkomsten kommer in på (valfritt)
         recurring: Om inkomsten är återkommande
         frequency: Frekvens om återkommande (monthly, yearly, etc.)
         category: Inkomstkategori (valfritt)
@@ -140,6 +143,7 @@ class Income(BaseModel):
     source: str
     amount: Decimal
     date: date
+    account: Optional[str] = None
     recurring: bool = False
     frequency: Optional[Literal["monthly", "yearly"]] = None
     category: Optional[str] = None

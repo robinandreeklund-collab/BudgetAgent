@@ -136,7 +136,7 @@ def simulate_monthly_balance(months: int) -> List[ForecastData]:
     from datetime import datetime
     from dateutil.relativedelta import relativedelta
     from decimal import Decimal
-    from . import income_tracker, upcoming_bills, parse_transactions
+    from . import income_tracker, upcoming_bills, parse_transactions, account_manager
     
     # Hämta framtida inkomster och fakturor
     future_income = income_tracker.forecast_income(months)
@@ -160,8 +160,16 @@ def simulate_monthly_balance(months: int) -> List[ForecastData]:
         # Ingen historik finns - använd 0 istället för fallback
         avg_monthly_expenses = Decimal(0)
     
+    # Ladda aktuellt totalt saldo från alla konton
+    accounts = account_manager.load_accounts()
+    current_balance = Decimal(0)
+    
+    if accounts:
+        for account_name, account in accounts.items():
+            if account.current_balance is not None:
+                current_balance += account.current_balance
+    
     forecast_data = []
-    current_balance = Decimal(0)  # Startbalans på 0 för demo-läge
     today = datetime.now().date()
     
     for month_offset in range(months):

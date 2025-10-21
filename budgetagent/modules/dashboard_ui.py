@@ -224,6 +224,11 @@ def input_panel() -> html.Div:
                 ],
                 placeholder='Kategori'
             ),
+            dcc.Dropdown(
+                id='bill-account',
+                options=[],  # Populated dynamically
+                placeholder='Välj konto (valfritt)'
+            ),
             html.Button('Lägg till faktura', id='add-bill-button', n_clicks=0)
         ], style={'marginBottom': '20px'}),
         
@@ -234,6 +239,11 @@ def input_panel() -> html.Div:
             dcc.Input(id='income-source', type='text', placeholder='Källa'),
             dcc.Input(id='income-amount', type='number', placeholder='Belopp'),
             dcc.DatePickerSingle(id='income-date', placeholder='Datum'),
+            dcc.Dropdown(
+                id='income-account',
+                options=[],  # Populated dynamically
+                placeholder='Välj konto (valfritt)'
+            ),
             dcc.Checklist(
                 id='income-recurring',
                 options=[{'label': 'Återkommande', 'value': 'recurring'}],
@@ -750,9 +760,10 @@ def render_dashboard() -> None:
         State('bill-amount', 'value'),
         State('bill-due-date', 'date'),
         State('bill-category', 'value'),
+        State('bill-account', 'value'),
         prevent_initial_call=True
     )
-    def add_bill_callback(n_clicks, name, amount, due_date, category):
+    def add_bill_callback(n_clicks, name, amount, due_date, category, account):
         """Lägger till en ny faktura."""
         if n_clicks and name and amount and due_date and category:
             try:
@@ -761,6 +772,7 @@ def render_dashboard() -> None:
                     amount=Decimal(str(amount)),
                     due_date=datetime.fromisoformat(due_date).date(),
                     category=category,
+                    account=account,
                     recurring=False
                 )
                 upcoming_bills.add_bill(bill)
@@ -778,11 +790,12 @@ def render_dashboard() -> None:
         State('income-source', 'value'),
         State('income-amount', 'value'),
         State('income-date', 'date'),
+        State('income-account', 'value'),
         State('income-recurring', 'value'),
         State('data-update-trigger', 'data'),
         prevent_initial_call=True
     )
-    def add_income_callback(n_clicks, person, source, amount, date, recurring, current_trigger):
+    def add_income_callback(n_clicks, person, source, amount, date, account, recurring, current_trigger):
         """Lägger till en ny inkomst."""
         if n_clicks and person and source and amount and date:
             try:
@@ -792,6 +805,7 @@ def render_dashboard() -> None:
                     source=source,
                     amount=Decimal(str(amount)),
                     date=datetime.fromisoformat(date).date(),
+                    account=account,
                     recurring=is_recurring,
                     frequency='monthly' if is_recurring else None
                 )
@@ -1323,6 +1337,37 @@ def render_dashboard() -> None:
         ], style={'color': 'green', 'padding': '10px', 'backgroundColor': '#d4edda', 'borderRadius': '5px'})
         
         return feedback, update_accounts_display(0, None)
+    
+    # Callback för att uppdatera konto-dropdowns i faktura- och inkomstformulär
+    @app.callback(
+        [Output('bill-account', 'options'),
+         Output('income-account', 'options')],
+        [Input('refresh-accounts-button', 'n_clicks'),
+         Input('data-update-trigger', 'data'),
+         Input('bill-account', 'id'),  # Trigger on page load
+         Input('income-account', 'id')]  # Trigger on page load
+    )
+    def update_account_dropdowns(refresh_clicks, trigger, bill_id, income_id):
+        """Uppdaterar konto-dropdowns med aktuella konton."""
+        try:
+            from . import account_manager
+            
+            accounts = account_manager.load_accounts()
+            
+            if not accounts:
+                return [], []
+            
+            # Skapa options-lista från konton
+            account_options = [
+                {'label': account_name, 'value': account_name}
+                for account_name in sorted(accounts.keys())
+            ]
+            
+            return account_options, account_options
+            
+        except Exception as e:
+            print(f"Fel vid hämtning av konton för dropdowns: {e}")
+            return [], []
     
     # Kör server
     app.run(debug=True, host='0.0.0.0', port=8050)

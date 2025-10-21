@@ -356,6 +356,15 @@ Dashboard innehåller ett naturligt språkgränssnitt där du kan ställa frågo
 
 Systemet tolkar frågan, identifierar intent och parametrar, och returnerar relevant information.
 
+## 📸 Visualisering av prognoser
+
+Systemet genererar prognosgrafer som visar framtida saldo baserat på historiska data, planerade inkomster och fakturor:
+
+<!-- Referensbild för prognosgraf -->
+<img src="docs/forecast_graph_example.png" alt="Exempel på prognosgraf" width="800" />
+
+*Prognosgrafen visar simulerat saldo över tid med hänsyn till förväntade utgifter och inkomster.*
+
 🤝 Bidra
 Alla moduler är dokumenterade och testade. Se config/test_plan.yaml för att förstå testflödet. Nya contributors kan börja med att läsa project_structure.yaml och settings_panel.yaml.
 

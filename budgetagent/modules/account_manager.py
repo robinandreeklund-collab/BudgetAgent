@@ -22,6 +22,9 @@ from .models import Account, Transaction
 # Global sökväg till konto-databasen
 ACCOUNTS_DB_PATH = Path(__file__).parent.parent / "config" / "accounts.yaml"
 
+# Global sökväg till import-index
+IMPORTS_INDEX_PATH = Path(__file__).parent.parent / "data" / "imports_index.yaml"
+
 
 def extract_account_from_filename(filename: str) -> str:
     """
@@ -506,3 +509,113 @@ def update_account_balance(account_name: str, balance, balance_date, currency: s
     
     accounts[account_name] = account
     save_accounts(accounts)
+
+
+def load_imports_index() -> dict:
+    """
+    Laddar import-index från YAML-fil.
+    
+    Returnerar dictionary med importerad fil-metadata inklusive checksums
+    och transaktions-hasher för dupliceringsspårning.
+    
+    Returns:
+        Dictionary med import-metadata
+    """
+    if not IMPORTS_INDEX_PATH.exists():
+        return {'imports': []}
+    
+    try:
+        with open(IMPORTS_INDEX_PATH, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f) or {}
+        return data if 'imports' in data else {'imports': []}
+    except Exception as e:
+        print(f"Varning: Kunde inte ladda import-index från {IMPORTS_INDEX_PATH}: {e}")
+        return {'imports': []}
+
+
+def save_imports_index(index_data: dict) -> None:
+    """
+    Sparar import-index till YAML-fil.
+    
+    Args:
+        index_data: Dictionary med import-metadata
+    """
+    IMPORTS_INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(IMPORTS_INDEX_PATH, 'w', encoding='utf-8') as f:
+        yaml.dump(index_data, f, allow_unicode=True, default_flow_style=False)
+
+
+def add_import_to_index(
+    filename: str,
+    checksum: str,
+    account: str,
+    transaction_count: int,
+    transaction_hashes: List[str]
+) -> None:
+    """
+    Lägger till en import till import-index.
+    
+    Registrerar metadata om importerad fil för spårning och dupliceringsskydd.
+    
+    Args:
+        filename: Filnamn som importerades
+        checksum: MD5-checksumma av filen
+        account: Kontonamn som filen tillhör
+        transaction_count: Antal transaktioner i filen
+        transaction_hashes: Lista med SHA256-hasher för transaktionerna
+    """
+    index = load_imports_index()
+    
+    import_entry = {
+        'filename': filename,
+        'checksum': checksum,
+        'account': account,
+        'import_date': datetime.now().isoformat(),
+        'transaction_count': transaction_count,
+        'transaction_hashes': transaction_hashes
+    }
+    
+    index['imports'].append(import_entry)
+    save_imports_index(index)
+
+
+def get_import_by_checksum(checksum: str) -> Optional[dict]:
+    """
+    Hämtar import-metadata baserat på checksumma.
+    
+    Används för att kontrollera om en fil redan har importerats.
+    
+    Args:
+        checksum: MD5-checksumma att söka efter
+        
+    Returns:
+        Dictionary med import-metadata eller None om inte hittad
+    """
+    index = load_imports_index()
+    
+    for import_entry in index.get('imports', []):
+        if import_entry.get('checksum') == checksum:
+            return import_entry
+    
+    return None
+
+
+def list_account_imports(account_name: str) -> List[dict]:
+    """
+    Listar alla importer för ett specifikt konto.
+    
+    Args:
+        account_name: Namn på kontot
+        
+    Returns:
+        Lista med import-metadata för kontot
+    """
+    index = load_imports_index()
+    
+    account_imports = [
+        entry for entry in index.get('imports', [])
+        if entry.get('account') == account_name
+    ]
+    
+    return account_imports

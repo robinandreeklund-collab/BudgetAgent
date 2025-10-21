@@ -237,7 +237,58 @@ Kör alla tester med:
 pytest budgetagent/tests/ -v
 ```
 
-**Testtäckning:** 193 tester i 8 testfiler
+**Testtäckning:** 55+ tester i 10+ testfiler (inkl. nya test_import_accounts.py och utökade test_categorization_rules.py)
+
+## 🤖 Träna AI-modellen för kategorisering
+
+BudgetAgent använder en hybrid-modell för kategorisering som kombinerar:
+1. **Regelbaserad matchning** - snabb och pålitlig kategorisering med nyckelord
+2. **TF-IDF AI-fallback** - maskininlärning baserat på träningsdata
+
+### Hur tränar du modellen?
+
+1. **Via Dashboard (kommande feature):**
+   - Navigera till "Konton"-vyn i dashboarden
+   - Granska transaktioner och välj rätt kategori från dropdown
+   - Klicka på "Lär AI" för att spara valet som träningsdata
+   - Modellen tränas automatiskt när du har minst 2 exempel per kategori
+
+2. **Programmatiskt:**
+   ```python
+   from budgetagent.modules.categorize_expenses import add_training_example
+   
+   # Lägg till träningsexempel
+   add_training_example("ICA Supermarket Linköping", "Mat")
+   add_training_example("Circle K bensin", "Transport")
+   add_training_example("Spotify Premium", "Nöje")
+   ```
+
+3. **Förhandsgranska klassificering:**
+   - Använd "Förhandsgranska klassificering" för att se hur AI skulle kategorisera
+   - Spara endast de resultat du är nöjd med
+
+### Träningsdata
+
+Träningsdata sparas i `budgetagent/data/training_data.yaml` och används för att bygga TF-IDF-index.
+Ju fler exempel du lägger till, desto bättre blir kategoriseringen!
+
+**Krav för TF-IDF-träning:**
+- Minst 2 träningsexempel totalt
+- Minst 2 olika kategorier
+- Fler exempel ger bättre resultat
+
+### Dependencies för AI-kategorisering
+
+AI-funktionen kräver scikit-learn:
+```bash
+pip install scikit-learn>=1.0.0
+```
+
+För framtida förbättringar kan du även installera:
+```bash
+pip install sentence-transformers  # För semantisk likhet (kommande)
+```
+
 ## 🛠️ Anpassning
 
 **Kategoriseringsregler:**
@@ -256,6 +307,44 @@ Alla inställningar kan också justeras via dashboard-gränssnittet under fliken
 
 Projektet inkluderar exempeldata i `budgetagent/data/example_bank_data.csv` med 20 transaktioner från januari-februari 2025. Använd detta för att testa systemet.
 
+## 🏦 Kontohantering och Dupliceringsskydd
+
+BudgetAgent hanterar automatiskt flera bankkonton och skyddar mot dubbletter:
+
+### Automatisk kontoregistrering
+
+När du importerar en fil extraheras kontonamnet automatiskt från filnamnet:
+- Exempel: `PERSONKONTO 1709 20 72840 - 2025-10-21 09.39.41.csv` → Konto: `PERSONKONTO 1709 20 72840`
+- Konton skapas automatiskt om de inte finns
+- Metadata sparas i `budgetagent/config/accounts.yaml`
+
+### Dupliceringsskydd
+
+Systemet förhindrar dubbletter på två nivåer:
+
+1. **Filnivå:** MD5-checksumma beräknas för varje fil
+   - Samma fil kan inte importeras två gånger
+   - Indexeras i `budgetagent/data/imports_index.yaml`
+
+2. **Transaktionsnivå:** SHA256-hash beräknas för varje transaktion
+   - Baserat på datum, belopp, beskrivning och valuta
+   - Dubbletter filtreras bort automatiskt vid import
+
+### Import-index
+
+Alla importer spåras i `budgetagent/data/imports_index.yaml`:
+```yaml
+imports:
+  - filename: "PERSONKONTO 1709 20 72840 - 2025-10-21.csv"
+    checksum: "abc123..."
+    account: "PERSONKONTO 1709 20 72840"
+    import_date: "2025-10-21T09:39:41"
+    transaction_count: 25
+    transaction_hashes:
+      - "hash1..."
+      - "hash2..."
+```
+
 ## 🤖 Agentfrågor - Exempel
 
 Dashboard innehåller ett naturligt språkgränssnitt där du kan ställa frågor som:
@@ -266,6 +355,69 @@ Dashboard innehåller ett naturligt språkgränssnitt där du kan ställa frågo
 - "Hur mycket spenderar vi på mat per månad?"
 
 Systemet tolkar frågan, identifierar intent och parametrar, och returnerar relevant information.
+
+## 📸 Visualisering av prognoser
+
+Systemet genererar prognosgrafer som visar framtida saldo baserat på historiska data, planerade inkomster och fakturor:
+
+<!-- Referensbild för prognosgraf -->
+<img src="docs/forecast_graph_example.png" alt="Exempel på prognosgraf" width="800" />
+
+*Prognosgrafen visar simulerat saldo över tid med hänsyn till förväntade utgifter och inkomster.*
+
+## 🚀 Framtida Förbättringar
+
+Systemet har en solid grund och kan utökas med följande funktioner:
+
+### 1. Transaktionstabell med faktisk data i UI
+- **Vad:** Fullständig transaktionstabell i kontopanelen med kategori-dropdowns per rad
+- **Status:** UI-struktur finns, behöver koppling till persistent transaktionslagring
+- **Nytta:** Möjliggör direkt kategorisering och granskning av alla transaktioner
+
+### 2. Sentence-transformers för semantisk likhet
+- **Vad:** Uppgradering från TF-IDF till sentence-transformers för bättre förståelse av transaktionsbeskrivningar
+- **Status:** Arkitekturen är pluggbar, `embedding_match()` kan enkelt utökas
+- **Nytta:** Bättre kategorisering av nya/okända transaktioner genom semantisk förståelse
+- **Implementation:**
+  ```python
+  from sentence_transformers import SentenceTransformer
+  model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+  embeddings = model.encode(descriptions)
+  ```
+
+### 3. Persistens för kategoriserade transaktioner
+- **Vad:** Långtidslagring av transaktioner med deras kategorier i databas eller strukturerad fil
+- **Status:** Transaktioner kategoriseras men sparas inte long-term med kategorier
+- **Nytta:** Möjliggör historisk analys, rapporter och ML-träning på större dataset
+- **Förslag:** SQLite-databas eller utökad YAML-struktur
+
+### 4. Bulk-operations callbacks i UI
+- **Vad:** UI-callbacks för att kategorisera många transaktioner samtidigt
+- **Status:** API-funktioner finns (`bulk_label`), UI-callbacks behöver implementeras
+- **Nytta:** Snabbare arbetsflöde för användare med många transaktioner
+- **Implementation:** Dash-callbacks för att koppla bulk-knappar till API
+
+### 5. Träningsvisualisering
+- **Vad:** Grafisk visualisering av AI-modellens träningsprogress och prestanda
+- **Status:** Träningsstatistik finns, visualisering saknas
+- **Nytta:** Användaren ser hur modellen förbättras över tid
+- **Förslag:** 
+  - Confusion matrix för kategorier
+  - Accuracy/F1-score över tid
+  - Fördelning av träningsdata per kategori (stapeldiagram)
+
+### Prioritering
+
+**Hög prioritet (nästa release):**
+1. Transaktionstabell med faktisk data
+2. Persistens för kategoriserade transaktioner
+
+**Medel prioritet:**
+3. Bulk-operations callbacks
+4. Träningsvisualisering
+
+**Långsiktig:**
+5. Sentence-transformers (kräver mer compute-resurser)
 
 🤝 Bidra
 Alla moduler är dokumenterade och testade. Se config/test_plan.yaml för att förstå testflödet. Nya contributors kan börja med att läsa project_structure.yaml och settings_panel.yaml.

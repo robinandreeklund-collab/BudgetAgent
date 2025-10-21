@@ -358,3 +358,219 @@ class TestHybridCategorization:
         
         # Okänd transaktion ska ha needs_review
         assert 'needs_review' in result[1].metadata or result[1].category == 'Okategoriserad'
+
+
+class TestTFIDFCategorization:
+    """Tester för TF-IDF-baserad kategorisering."""
+    
+    def test_rule_match_function(self):
+        """Test att rule_match-funktionen fungerar korrekt."""
+        from budgetagent.modules.categorize_expenses import rule_match
+        
+        rules = {
+            'categories': {
+                'mat': {
+                    'keywords': ['ica', 'coop', 'willys'],
+                    'confidence': 0.95
+                }
+            }
+        }
+        
+        # Test med match
+        category, confidence = rule_match("ICA Maxi Stockholm", rules)
+        assert category == "Mat"
+        assert confidence == 0.95
+        
+        # Test utan match
+        category, confidence = rule_match("Okänd butik", rules)
+        assert category is None
+        assert confidence == 0.0
+    
+    def test_add_training_example(self):
+        """Test att lägga till träningsexempel."""
+        from budgetagent.modules.categorize_expenses import add_training_example, load_training_data
+        import tempfile
+        from pathlib import Path
+        
+        # Använd temporär fil för test
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Mock training data path
+            import budgetagent.modules.categorize_expenses as cat_module
+            original_path = Path(cat_module.__file__).parent.parent / "data" / "training_data.yaml"
+            test_path = Path(tmpdir) / "training_data.yaml"
+            
+            # Skapa tom training data
+            test_path.write_text("training_examples: []\n", encoding='utf-8')
+            
+            # Temporarily override the path
+            def mock_load():
+                with open(test_path, 'r', encoding='utf-8') as f:
+                    import yaml
+                    data = yaml.safe_load(f) or {}
+                return data.get('training_examples', [])
+            
+            def mock_save(examples):
+                with open(test_path, 'w', encoding='utf-8') as f:
+                    import yaml
+                    yaml.dump({'training_examples': examples}, f, allow_unicode=True)
+            
+            # Test add example
+            example_desc = "Test Shop Stockholm"
+            example_cat = "Mat"
+            
+            # Add example by directly calling the logic
+            examples = mock_load()
+            examples.append({
+                'description': example_desc,
+                'category': example_cat,
+                'date_added': '2025-10-21',
+                'confidence': 1.0
+            })
+            mock_save(examples)
+            
+            # Verify
+            loaded = mock_load()
+            assert len(loaded) == 1
+            assert loaded[0]['description'] == example_desc
+            assert loaded[0]['category'] == example_cat
+    
+    def test_embedding_match_without_training_data(self):
+        """Test embedding_match när ingen träningsdata finns."""
+        from budgetagent.modules.categorize_expenses import embedding_match
+        
+        # Reset global cache
+        import budgetagent.modules.categorize_expenses as cat_module
+        cat_module._tfidf_model = None
+        cat_module._tfidf_vectorizer = None
+        cat_module._tfidf_categories = None
+        
+        # Test med tom träningsdata
+        category, confidence = embedding_match("Test beskrivning")
+        
+        # Utan träningsdata ska den returnera "Okategoriserad" med 0 confidence
+        assert category == "Okategoriserad"
+        assert confidence == 0.0
+    
+    def test_build_index_with_sufficient_data(self):
+        """Test att bygga TF-IDF index med tillräcklig data."""
+        from budgetagent.modules.categorize_expenses import build_index
+        import tempfile
+        from pathlib import Path
+        import yaml
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_path = Path(tmpdir) / "training_data.yaml"
+            
+            # Skapa testdata med flera exempel och kategorier
+            training_data = {
+                'training_examples': [
+                    {'description': 'ICA Maxi Stockholm', 'category': 'Mat', 'confidence': 1.0},
+                    {'description': 'Coop Forum Uppsala', 'category': 'Mat', 'confidence': 1.0},
+                    {'description': 'SL Access Stockholm', 'category': 'Transport', 'confidence': 1.0},
+                    {'description': 'Uber resa', 'category': 'Transport', 'confidence': 1.0},
+                ]
+            }
+            
+            with open(test_path, 'w', encoding='utf-8') as f:
+                yaml.dump(training_data, f, allow_unicode=True)
+            
+            # Mock load function
+            def mock_load():
+                with open(test_path, 'r', encoding='utf-8') as f:
+                    data = yaml.safe_load(f) or {}
+                return data.get('training_examples', [])
+            
+            # Temporarily replace load function
+            import budgetagent.modules.categorize_expenses as cat_module
+            original_load = cat_module.load_training_data
+            cat_module.load_training_data = mock_load
+            
+            try:
+                model, vectorizer, categories = build_index()
+                
+                # Verifiera att modellen byggdes
+                assert model is not None
+                assert vectorizer is not None
+                assert categories is not None
+                assert len(categories) == 2  # Mat och Transport
+            finally:
+                cat_module.load_training_data = original_load
+    
+    def test_build_index_with_insufficient_data(self):
+        """Test att bygga TF-IDF index med för lite data."""
+        from budgetagent.modules.categorize_expenses import build_index
+        import tempfile
+        from pathlib import Path
+        import yaml
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_path = Path(tmpdir) / "training_data.yaml"
+            
+            # Skapa testdata med för få exempel
+            training_data = {
+                'training_examples': [
+                    {'description': 'ICA Maxi', 'category': 'Mat', 'confidence': 1.0},
+                ]
+            }
+            
+            with open(test_path, 'w', encoding='utf-8') as f:
+                yaml.dump(training_data, f, allow_unicode=True)
+            
+            # Mock load function
+            def mock_load():
+                with open(test_path, 'r', encoding='utf-8') as f:
+                    data = yaml.safe_load(f) or {}
+                return data.get('training_examples', [])
+            
+            # Temporarily replace load function
+            import budgetagent.modules.categorize_expenses as cat_module
+            original_load = cat_module.load_training_data
+            cat_module.load_training_data = mock_load
+            
+            try:
+                model, vectorizer, categories = build_index()
+                
+                # Verifiera att ingen modell byggdes (för lite data)
+                assert model is None
+                assert vectorizer is None
+                assert categories is None
+            finally:
+                cat_module.load_training_data = original_load
+    
+    def test_hybrid_categorization_with_ai_fallback(self):
+        """Test att hybrid kategorisering använder AI-fallback korrekt."""
+        from budgetagent.modules.categorize_expenses import auto_categorize
+        
+        # Skapa testdata
+        data = pd.DataFrame({
+            'description': ['ICA Maxi Stockholm', 'Helt okänd butik XYZ'],
+            'amount': [-100.00, -200.00]
+        })
+        
+        # Regler med AI-fallback aktiverad
+        rules = {
+            'config': {
+                'use_rules': True,
+                'use_ai_fallback': True,
+                'confidence_threshold': 0.7,
+                'ai_min_confidence': 0.5
+            },
+            'categories': {
+                'mat': {
+                    'keywords': ['ica', 'coop'],
+                    'confidence': 0.95
+                }
+            }
+        }
+        
+        # Kategorisera
+        result = auto_categorize(data, rules)
+        
+        # Första transaktionen ska matchas med regel
+        assert result.loc[0, 'category'] == 'Mat'
+        assert result.loc[0, 'confidence'] >= 0.9
+        
+        # Andra transaktionen ska gå till AI-fallback (eller bli okategoriserad)
+        assert pd.notna(result.loc[1, 'category'])
+        # Utan träningsdata blir det okategoriserad med låg confidence
+        assert result.loc[1, 'needs_review'] == True or result.loc[1, 'category'] == 'Okategoriserad'

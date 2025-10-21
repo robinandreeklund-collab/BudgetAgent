@@ -1,0 +1,14 @@
+# Index över importerade filer för dupliceringsskydd
+# Denna fil uppdateras automatiskt vid varje import
+# Format: lista över importerade filer med metadata
+
+imports: []
+# Exempel på struktur:
+# - filename: "PERSONKONTO 1709 20 72840 - 2025-10-21 09.39.41.csv"
+#   checksum: "abc123def456..."
+#   account: "PERSONKONTO 1709 20 72840"
+#   import_date: "2025-10-21T09:39:41"
+#   transaction_count: 25
+#   transaction_hashes:
+#     - "hash1..."
+#     - "hash2..."

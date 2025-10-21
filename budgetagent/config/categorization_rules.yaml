@@ -32,6 +32,11 @@ categories:
       - pizzeria
     # Hög säkerhet vid exakt matchning
     confidence: 0.95
+    # Underkategorier för mer granulär kategorisering
+    subcategories:
+      - dagligvaror
+      - restaurang
+      - snabbmat
 
   boende:
     keywords:
@@ -43,6 +48,12 @@ categories:
       - internet
       - försäkring bostads
     confidence: 0.95
+    subcategories:
+      - hyra
+      - el
+      - vatten
+      - internet
+      - hemförsäkring
 
   transport:
     keywords:
@@ -58,6 +69,11 @@ categories:
       - taxi
       - parkering
     confidence: 0.95
+    subcategories:
+      - bensin
+      - kollektivtrafik
+      - taxi
+      - parkering
 
   nöje:
     keywords:
@@ -71,6 +87,10 @@ categories:
       - teater
       - streaming
     confidence: 0.95
+    subcategories:
+      - streaming
+      - bio
+      - evenemang
 
   kläder:
     keywords:
@@ -82,6 +102,10 @@ categories:
       - lindex
       - stadium
     confidence: 0.95
+    subcategories:
+      - kläder
+      - skor
+      - accessoarer
 
   hälsa:
     keywords:
@@ -93,6 +117,11 @@ categories:
       - sjukhus
       - optiker
     confidence: 0.95
+    subcategories:
+      - apotek
+      - läkarvård
+      - tandvård
+      - optik
 
   försäkring:
     keywords:
@@ -102,6 +131,10 @@ categories:
       - länsförsäkringar
       - trygg hansa
     confidence: 0.95
+    subcategories:
+      - hemförsäkring
+      - bilförsäkring
+      - livförsäkring
 
   inkomst:
     keywords:
@@ -109,3 +142,7 @@ categories:
       - salary
       - utbetalning
     confidence: 0.95
+    subcategories:
+      - lön
+      - bonus
+      - övertid

@@ -25,21 +25,207 @@ Exempel på YAML-konfiguration kan laddas från categorization_rules.yaml:
 """
 
 import pandas as pd
+import yaml
+import pickle
+from pathlib import Path
 from typing import Dict, Optional, List, Tuple
+from datetime import date
 from .models import Transaction
+
+# Global cache för TF-IDF modell
+_tfidf_model = None
+_tfidf_vectorizer = None
+_tfidf_categories = None
+
+
+def load_training_data() -> List[Dict]:
+    """
+    Laddar träningsdata från YAML-fil.
+    
+    Läser in sparad träningsdata som användaren har markerat via UI:t
+    för att förbättra AI-kategorisering.
+    
+    Returns:
+        Lista med träningsexempel (dict med 'description' och 'category')
+    """
+    training_data_path = Path(__file__).parent.parent / "data" / "training_data.yaml"
+    
+    if not training_data_path.exists():
+        return []
+    
+    try:
+        with open(training_data_path, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f) or {}
+        return data.get('training_examples', [])
+    except Exception as e:
+        print(f"Varning: Kunde inte ladda träningsdata: {e}")
+        return []
+
+
+def save_training_data(training_examples: List[Dict]) -> None:
+    """
+    Sparar träningsdata till YAML-fil.
+    
+    Skriver ut träningsdata som användaren har markerat via UI:t
+    för att förbättra AI-kategorisering.
+    
+    Args:
+        training_examples: Lista med träningsexempel
+    """
+    training_data_path = Path(__file__).parent.parent / "data" / "training_data.yaml"
+    training_data_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(training_data_path, 'w', encoding='utf-8') as f:
+        yaml.dump({'training_examples': training_examples}, f, allow_unicode=True, default_flow_style=False)
+
+
+def add_training_example(description: str, category: str, confidence: float = 1.0) -> None:
+    """
+    Lägger till ett träningsexempel för AI-modellen.
+    
+    Sparar en beskrivning-kategori-mappning som används för att träna
+    TF-IDF-modellen och förbättra framtida kategorisering.
+    
+    Args:
+        description: Transaktionsbeskrivning
+        category: Korrekt kategori
+        confidence: Säkerhetsvärde (standard 1.0 för manuella val)
+    """
+    training_examples = load_training_data()
+    
+    # Lägg till nytt exempel
+    new_example = {
+        'description': description,
+        'category': category,
+        'date_added': date.today().isoformat(),
+        'confidence': confidence
+    }
+    
+    # Kontrollera om exempel redan finns (undvik dubbletter)
+    for example in training_examples:
+        if example['description'].lower() == description.lower():
+            # Uppdatera befintligt exempel
+            example['category'] = category
+            example['date_added'] = date.today().isoformat()
+            example['confidence'] = confidence
+            save_training_data(training_examples)
+            return
+    
+    # Lägg till nytt exempel
+    training_examples.append(new_example)
+    save_training_data(training_examples)
+    
+    # Invalidera cached modell så att den byggs om nästa gång
+    global _tfidf_model, _tfidf_vectorizer, _tfidf_categories
+    _tfidf_model = None
+    _tfidf_vectorizer = None
+    _tfidf_categories = None
+
+
+def build_index() -> Tuple[Optional[object], Optional[object], Optional[List[str]]]:
+    """
+    Bygger TF-IDF-index från träningsdata.
+    
+    Skapar en TF-IDF vektorisering och tränar en enkel klassificerare
+    baserat på sparad träningsdata. Använder scikit-learn.
+    
+    Returns:
+        Tuple med (modell, vectorizer, kategorier) eller (None, None, None) om för lite data
+    """
+    training_examples = load_training_data()
+    
+    # Behöver minst 2 exempel och 2 kategorier för att träna
+    if len(training_examples) < 2:
+        return None, None, None
+    
+    categories = list(set(ex['category'] for ex in training_examples))
+    if len(categories) < 2:
+        return None, None, None
+    
+    try:
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        from sklearn.naive_bayes import MultinomialNB
+        
+        # Extrahera beskrivningar och kategorier
+        descriptions = [ex['description'].lower() for ex in training_examples]
+        labels = [ex['category'] for ex in training_examples]
+        
+        # Skapa TF-IDF vektorisering
+        vectorizer = TfidfVectorizer(
+            max_features=100,
+            ngram_range=(1, 2),  # Unigrams och bigrams
+            min_df=1,
+            lowercase=True
+        )
+        
+        # Vektorisera beskrivningar
+        X = vectorizer.fit_transform(descriptions)
+        
+        # Träna Naive Bayes klassificerare
+        model = MultinomialNB()
+        model.fit(X, labels)
+        
+        return model, vectorizer, categories
+        
+    except ImportError:
+        print("Varning: scikit-learn inte installerat. TF-IDF-kategorisering inte tillgänglig.")
+        return None, None, None
+    except Exception as e:
+        print(f"Varning: Kunde inte bygga TF-IDF-index: {e}")
+        return None, None, None
+
+
+def embedding_match(description: str) -> Tuple[str, float]:
+    """
+    Använder TF-IDF embedding för att hitta liknande kategorier.
+    
+    Använder träningsdata och TF-IDF-modell för att prediktera kategori
+    baserat på semantisk likhet med tidigare kategoriserade transaktioner.
+    
+    Args:
+        description: Transaktionsbeskrivning
+        
+    Returns:
+        Tuple med (kategori, säkerhetsvärde)
+    """
+    global _tfidf_model, _tfidf_vectorizer, _tfidf_categories
+    
+    # Bygg eller ladda cached modell
+    if _tfidf_model is None:
+        _tfidf_model, _tfidf_vectorizer, _tfidf_categories = build_index()
+    
+    # Om ingen modell kunde byggas, returnera okategoriserad
+    if _tfidf_model is None:
+        return "Okategoriserad", 0.0
+    
+    try:
+        # Vektorisera beskrivning
+        X = _tfidf_vectorizer.transform([description.lower()])
+        
+        # Prediktera med sannolikheter
+        probabilities = _tfidf_model.predict_proba(X)[0]
+        
+        # Hitta kategori med högst sannolikhet
+        best_idx = probabilities.argmax()
+        confidence = float(probabilities[best_idx])
+        category = _tfidf_model.classes_[best_idx]
+        
+        return category, confidence
+        
+    except Exception as e:
+        print(f"Varning: Embedding-matchning misslyckades: {e}")
+        return "Okategoriserad", 0.0
 
 
 def _ai_categorize_fallback(description: str) -> Tuple[str, float]:
     """
     AI-baserad kategorisering som fallback.
     
-    Detta är en stub-implementation för framtida AI-baserad kategorisering
-    med scikit-learn, spaCy eller embedding-modeller. För närvarande returnerar
-    den "Okategoriserad" med låg säkerhet för att signalera att AI-modellen
-    inte är tränad än.
+    Använder TF-IDF-baserad kategorisering med scikit-learn som fallback
+    när regelbaserad matchning inte ger resultat. Tränas automatiskt från
+    användarens träningsdata.
     
-    Framtida implementation kan inkludera:
-    - TF-IDF vektorisering med scikit-learn classifier
+    Framtida förbättringar kan inkludera:
     - spaCy för text-analys och named entity recognition
     - Sentence transformers för semantisk likhet
     - Fine-tunad BERT-modell för svensk text
@@ -50,29 +236,43 @@ def _ai_categorize_fallback(description: str) -> Tuple[str, float]:
     Returns:
         Tuple med (kategori, säkerhetsvärde)
     """
-    # TODO: Implementera riktig AI-baserad kategorisering
-    # Exempel på framtida implementation:
-    # 
-    # from sklearn.feature_extraction.text import TfidfVectorizer
-    # from sklearn.naive_bayes import MultinomialNB
-    # 
-    # # Ladda tränad modell
-    # model = load_trained_model()
-    # vectorizer = load_vectorizer()
-    # 
-    # # Vektorisera beskrivning
-    # features = vectorizer.transform([description])
-    # 
-    # # Prediktera kategori
-    # probabilities = model.predict_proba(features)[0]
-    # category_idx = probabilities.argmax()
-    # confidence = probabilities[category_idx]
-    # category = model.classes_[category_idx]
-    # 
-    # return category, confidence
+    # Använd TF-IDF embedding-matchning
+    return embedding_match(description)
+
+
+def rule_match(description: str, rules: Dict) -> Tuple[Optional[str], float]:
+    """
+    Matchar en beskrivning mot regelbaserade nyckelord.
     
-    # Stub-implementation: returnera okategoriserad med låg säkerhet
-    return "Okategoriserad", 0.3
+    Går igenom alla kategorier och deras nyckelord för att hitta en match.
+    Returnerar första matchningen med dess säkerhetsvärde.
+    
+    Args:
+        description: Transaktionsbeskrivning att matcha
+        rules: Dictionary med kategoriseringsregler
+        
+    Returns:
+        Tuple med (kategori, säkerhetsvärde) eller (None, 0.0) om ingen match
+    """
+    desc_lower = description.lower()
+    
+    # Hämta kategorier från rules
+    if 'categories' in rules and isinstance(rules['categories'], dict):
+        categories = rules['categories']
+    else:
+        categories = {k: v for k, v in rules.items() if k != 'config'}
+    
+    # Sök efter matchningar
+    for category, cat_config in categories.items():
+        if 'keywords' in cat_config:
+            keywords = cat_config['keywords']
+            if isinstance(keywords, list):
+                for keyword in keywords:
+                    if keyword.lower() in desc_lower:
+                        confidence = cat_config.get('confidence', 0.95)
+                        return category.capitalize(), confidence
+    
+    return None, 0.0
 
 
 def auto_categorize(data: pd.DataFrame, rules: Dict, config: Optional[Dict] = None) -> pd.DataFrame:
@@ -134,24 +334,13 @@ def auto_categorize(data: pd.DataFrame, rules: Dict, config: Optional[Dict] = No
             # Skippa om kategori redan är satt
             continue
             
-        desc = str(row['description']).lower()
+        desc = str(row['description'])
         matched_category = None
         category_confidence = 0.0
         
         # Steg 1: Regelbaserad matchning
         if use_rules:
-            for category, cat_config in categories.items():
-                if 'keywords' in cat_config:
-                    keywords = cat_config['keywords']
-                    if isinstance(keywords, list):
-                        for keyword in keywords:
-                            if keyword.lower() in desc:
-                                matched_category = category.capitalize()
-                                # Hämta säkerhetsvärde från kategori-config eller använd standard
-                                category_confidence = cat_config.get('confidence', 0.95)
-                                break
-                if matched_category:
-                    break
+            matched_category, category_confidence = rule_match(desc, rules)
         
         # Steg 2: AI-baserad fallback om ingen match
         if not matched_category and use_ai_fallback:
@@ -326,23 +515,13 @@ def categorize_transactions(transactions: List[Transaction], rules: Dict) -> Lis
             categorized_transactions.append(transaction)
             continue
         
-        desc = transaction.description.lower()
+        desc = transaction.description
         matched_category = None
         category_confidence = 0.0
         
         # Steg 1: Regelbaserad matchning
         if use_rules:
-            for category, cat_config in categories.items():
-                if 'keywords' in cat_config:
-                    keywords = cat_config['keywords']
-                    if isinstance(keywords, list):
-                        for keyword in keywords:
-                            if keyword.lower() in desc:
-                                matched_category = category.capitalize()
-                                category_confidence = cat_config.get('confidence', 0.95)
-                                break
-                if matched_category:
-                    break
+            matched_category, category_confidence = rule_match(desc, rules)
         
         # Steg 2: AI-baserad fallback om ingen match
         if not matched_category and use_ai_fallback:

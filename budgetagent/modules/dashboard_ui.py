@@ -330,28 +330,103 @@ def accounts_panel() -> html.Div:
     """
     Skapar kontopanelen som visar alla registrerade konton.
     
+    Inklusive:
+    - Lista över konton med importstatistik
+    - Paginerad tabell med transaktioner (50 rader/sida)
+    - Kategori-dropdown per transaktion
+    - Knapp för att skapa ny kategori
+    - "Lär AI"-knapp för att spara till träningsdata
+    - "Förhandsgranska"-knapp för att köra auto_categorize
+    
     Returns:
         Dash layout-objekt med kontoöversikt
     """
     return html.Div([
-        html.H2("Kontohantering"),
-        html.P("Här visas alla registrerade bankkonton och deras import-historik."),
+        html.H2("Kontohantering och Transaktionskategorisering"),
+        
+        # Kontoväljare
         html.Div([
-            html.Button('Uppdatera kontoöversikt', id='refresh-accounts-button', n_clicks=0, 
-                       style={'marginRight': '10px', 'marginBottom': '20px'}),
-            html.Button('Rensa alla konton', id='clear-all-accounts-button', n_clicks=0,
-                       style={
-                           'marginBottom': '20px',
-                           'backgroundColor': '#dc3545',
-                           'color': 'white',
-                           'border': 'none',
-                           'padding': '8px 16px',
-                           'borderRadius': '5px',
-                           'cursor': 'pointer'
-                       }),
-        ]),
-        html.Div(id='account-action-feedback', style={'marginBottom': '20px'}),
-        html.Div(id='accounts-container')
+            html.Label("Välj konto:", style={'fontWeight': 'bold', 'marginRight': '10px'}),
+            dcc.Dropdown(
+                id='account-selector',
+                placeholder='Välj ett konto...',
+                style={'width': '300px', 'display': 'inline-block'}
+            ),
+            html.Button('Uppdatera', id='refresh-accounts-button', n_clicks=0,
+                       style={'marginLeft': '10px'})
+        ], style={'marginBottom': '20px'}),
+        
+        # Kontostatistik
+        html.Div(id='account-stats', style={'marginBottom': '20px'}),
+        
+        # Kategoriseringsverktyg
+        html.Div([
+            html.H3("Kategoriseringsverktyg"),
+            html.Div([
+                html.Button('Förhandsgranska kategorisering', id='preview-categorization-btn',
+                           n_clicks=0, style={'marginRight': '10px'}),
+                html.Button('Spara valda kategorier', id='save-categories-btn',
+                           n_clicks=0, style={'marginRight': '10px'}),
+                html.Button('Skapa ny kategori', id='create-category-btn',
+                           n_clicks=0, style={'marginRight': '10px'}),
+                html.Button('Träna AI med valda', id='train-ai-btn',
+                           n_clicks=0, style={
+                               'backgroundColor': '#28a745',
+                               'color': 'white',
+                               'border': 'none',
+                               'padding': '8px 16px',
+                               'borderRadius': '5px'
+                           })
+            ], style={'marginBottom': '10px'}),
+            html.Div(id='categorization-feedback', style={'marginBottom': '20px'})
+        ], style={'marginBottom': '20px'}),
+        
+        # Modal för att skapa ny kategori
+        html.Div([
+            dcc.Input(id='new-category-name', type='text', placeholder='Kategorinamn',
+                     style={'marginRight': '10px', 'display': 'none'}),
+            dcc.Input(id='new-category-keywords', type='text', 
+                     placeholder='Nyckelord (kommaseparerade)',
+                     style={'marginRight': '10px', 'display': 'none'}),
+            html.Button('Spara kategori', id='save-new-category-btn', n_clicks=0,
+                       style={'display': 'none'})
+        ], id='new-category-form', style={'marginBottom': '20px'}),
+        
+        # Träningsdata-statistik
+        html.Div(id='training-stats', style={'marginBottom': '20px'}),
+        
+        # Paginerings-kontroller
+        html.Div([
+            html.Button('← Föregående', id='prev-page-btn', n_clicks=0,
+                       style={'marginRight': '10px'}),
+            html.Span(id='page-info', children='Sida 1 av 1',
+                     style={'marginRight': '10px', 'fontWeight': 'bold'}),
+            html.Button('Nästa →', id='next-page-btn', n_clicks=0),
+            html.Div([
+                html.Label('Rader per sida:', style={'marginRight': '5px'}),
+                dcc.Dropdown(
+                    id='rows-per-page',
+                    options=[
+                        {'label': '25', 'value': 25},
+                        {'label': '50', 'value': 50},
+                        {'label': '100', 'value': 100}
+                    ],
+                    value=50,
+                    clearable=False,
+                    style={'width': '100px', 'display': 'inline-block'}
+                )
+            ], style={'display': 'inline-block', 'marginLeft': '20px'})
+        ], style={'marginBottom': '20px'}),
+        
+        # Transaktionstabell
+        html.Div(id='transactions-table'),
+        
+        # Dold Store för att hålla transaktionsdata
+        dcc.Store(id='transactions-store', data=[]),
+        dcc.Store(id='current-page', data=1),
+        
+        # Action feedback
+        html.Div(id='account-action-feedback', style={'marginTop': '20px'})
     ], style={'padding': '20px'})
 
 
@@ -1749,6 +1824,127 @@ def render_dashboard() -> None:
                 html.Span(f'Fel vid uppdatering: {str(e)}')
             ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'})
             return feedback, update_bills_display(0, None, 0), {'display': 'none'}
+    
+    # Callback för att uppdatera account selector
+    @app.callback(
+        Output('account-selector', 'options'),
+        Input('refresh-accounts-button', 'n_clicks')
+    )
+    def update_account_options(n_clicks):
+        """Uppdaterar listan över konton i dropdown."""
+        from . import api
+        
+        accounts = api.list_accounts()
+        options = [
+            {'label': f"{acc['account_name']} ({acc['transaction_count']} tx)", 
+             'value': acc['account_name']}
+            for acc in accounts
+        ]
+        return options
+    
+    # Callback för att visa kontostatistik
+    @app.callback(
+        Output('account-stats', 'children'),
+        Input('account-selector', 'value')
+    )
+    def display_account_stats(account_name):
+        """Visar statistik för valt konto."""
+        if not account_name:
+            return html.P("Välj ett konto för att se statistik.")
+        
+        from . import account_manager
+        
+        accounts = account_manager.load_accounts()
+        if account_name not in accounts:
+            return html.P("Kontot hittades inte.")
+        
+        account = accounts[account_name]
+        
+        return html.Div([
+            html.H4(f"📊 Statistik för {account_name}"),
+            html.Ul([
+                html.Li(f"Importerade filer: {len(account.imported_files)}"),
+                html.Li(f"Antal transaktioner: {len(account.transaction_hashes)}"),
+                html.Li(f"Senaste import: {account.last_import_date.strftime('%Y-%m-%d %H:%M') if account.last_import_date else 'Aldrig'}"),
+                html.Li(f"Aktuellt saldo: {account.current_balance} {account.balance_currency}" if account.current_balance else "Saldo: Ej tillgängligt"),
+            ])
+        ], style={'backgroundColor': '#f8f9fa', 'padding': '15px', 'borderRadius': '5px'})
+    
+    # Callback för träningsstatistik
+    @app.callback(
+        Output('training-stats', 'children'),
+        Input('refresh-accounts-button', 'n_clicks')
+    )
+    def display_training_stats(n_clicks):
+        """Visar statistik om träningsdata."""
+        from . import api
+        
+        stats = api.get_training_data_stats()
+        
+        if stats['total_examples'] == 0:
+            return html.Div([
+                html.P("🤖 Ingen träningsdata ännu. Börja träna AI-modellen genom att välja kategorier och klicka 'Träna AI med valda'.")
+            ], style={'backgroundColor': '#fff3cd', 'padding': '15px', 'borderRadius': '5px'})
+        
+        category_items = [
+            html.Li(f"{cat}: {count} exempel")
+            for cat, count in stats['categories'].items()
+        ]
+        
+        return html.Div([
+            html.H4(f"🤖 AI-träningsdata"),
+            html.P(f"Totalt antal exempel: {stats['total_examples']}"),
+            html.P(f"Antal kategorier: {stats['unique_categories']}"),
+            html.Details([
+                html.Summary("Visa fördelning per kategori"),
+                html.Ul(category_items)
+            ])
+        ], style={'backgroundColor': '#d1ecf1', 'padding': '15px', 'borderRadius': '5px'})
+    
+    # Callback för att växla visning av ny kategori-formulär
+    @app.callback(
+        [Output('new-category-name', 'style'),
+         Output('new-category-keywords', 'style'),
+         Output('save-new-category-btn', 'style')],
+        Input('create-category-btn', 'n_clicks'),
+        State('new-category-name', 'style')
+    )
+    def toggle_category_form(n_clicks, current_style):
+        """Växlar visning av formulär för ny kategori."""
+        if n_clicks and n_clicks > 0:
+            # Växla synlighet
+            is_hidden = current_style.get('display') == 'none'
+            new_style = {'marginRight': '10px'} if is_hidden else {'display': 'none'}
+            return new_style, new_style, new_style
+        return ({'display': 'none'}, {'display': 'none'}, {'display': 'none'})
+    
+    # Callback för att spara ny kategori
+    @app.callback(
+        Output('categorization-feedback', 'children'),
+        Input('save-new-category-btn', 'n_clicks'),
+        [State('new-category-name', 'value'),
+         State('new-category-keywords', 'value')],
+        prevent_initial_call=True
+    )
+    def save_new_category(n_clicks, name, keywords):
+        """Sparar ny kategori."""
+        if not name or not keywords:
+            return html.Div("❌ Fyll i både kategorinamn och nyckelord.",
+                          style={'color': 'red', 'padding': '10px'})
+        
+        from . import api
+        
+        keyword_list = [kw.strip() for kw in keywords.split(',') if kw.strip()]
+        result = api.create_category(name, keyword_list)
+        
+        if result['success']:
+            return html.Div(f"✅ {result['message']}",
+                          style={'color': 'green', 'padding': '10px', 
+                                 'backgroundColor': '#d4edda', 'borderRadius': '5px'})
+        else:
+            return html.Div(f"❌ Fel: {result.get('error', 'Okänt fel')}",
+                          style={'color': 'red', 'padding': '10px',
+                                 'backgroundColor': '#f8d7da', 'borderRadius': '5px'})
     
     # Kör server
     app.run(debug=True, host='0.0.0.0', port=8050)

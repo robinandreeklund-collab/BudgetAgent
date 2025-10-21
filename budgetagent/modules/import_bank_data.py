@@ -37,28 +37,33 @@ def load_file(path: str) -> pd.DataFrame:
     suffix = file_path.suffix.lower()
     
     if suffix == '.csv':
-        # Försök först med komma-separator, sedan tab
-        # Hantera olika encodings (Nordea kan använda UTF-8 med BOM eller Windows-1252)
-        try:
-            # Försök UTF-8 först (med BOM-hantering)
-            df = pd.read_csv(path, encoding='utf-8-sig')
-            # Om endast en kolumn hittas, försök med tab som separator
-            if len(df.columns) == 1:
-                df = pd.read_csv(path, sep='\t', encoding='utf-8-sig')
-            return df
-        except (UnicodeDecodeError, Exception) as e1:
-            # Försök med Windows-1252 (vanlig för svenska banker)
+        # Försök olika separatorer och encodings
+        # Nordea kan använda komma, tab eller semikolon som separator
+        # Encodings: UTF-8 med BOM eller Windows-1252
+        
+        # Lista över kombinationer att testa
+        attempts = [
+            {'sep': ';', 'encoding': 'utf-8-sig'},    # Semikolon (vanlig för svenska Nordea)
+            {'sep': '\t', 'encoding': 'utf-8-sig'},   # Tab
+            {'sep': ',', 'encoding': 'utf-8-sig'},    # Komma
+            {'sep': None, 'encoding': 'utf-8-sig', 'engine': 'python'},  # Auto-detect med python engine
+            {'sep': ';', 'encoding': 'windows-1252'}, # Semikolon med Windows-1252
+            {'sep': '\t', 'encoding': 'windows-1252'}, # Tab med Windows-1252
+        ]
+        
+        last_error = None
+        for attempt in attempts:
             try:
-                df = pd.read_csv(path, encoding='windows-1252')
-                if len(df.columns) == 1:
-                    df = pd.read_csv(path, sep='\t', encoding='windows-1252')
-                return df
-            except Exception as e2:
-                # Försök med tab-separator direkt
-                try:
-                    return pd.read_csv(path, sep='\t', encoding='utf-8-sig')
-                except:
-                    raise ValueError(f"Kunde inte läsa CSV-fil. Försökte UTF-8 och Windows-1252. Fel: {str(e1)}")
+                df = pd.read_csv(path, **attempt)
+                # Kontrollera att vi fick flera kolumner (inte bara en kolumn med fel separator)
+                if len(df.columns) > 1:
+                    return df
+            except Exception as e:
+                last_error = e
+                continue
+        
+        # Om inget fungerade, ge ett informativt felmeddelande
+        raise ValueError(f"Kunde inte läsa CSV-fil med någon separator (komma, tab, semikolon). Senaste fel: {str(last_error)}")
     elif suffix in ['.xlsx', '.xls']:
         return pd.read_excel(path)
     elif suffix == '.json':
@@ -151,11 +156,12 @@ def normalize_columns(data: pd.DataFrame, format: str) -> pd.DataFrame:
         column_mapping['Belopp'] = 'amount'
         
         # Beskrivning - Nordea har olika varianter
-        if 'Namn' in df.columns:
+        # Prioritera Rubrik om den finns och inte är tom, annars Namn
+        if 'Rubrik' in df.columns and not df['Rubrik'].isna().all():
+            column_mapping['Rubrik'] = 'description'
+        elif 'Namn' in df.columns and not df['Namn'].isna().all():
             # Format med Namn-kolumn (det är den riktiga beskrivningen)
             column_mapping['Namn'] = 'description'
-        elif 'Rubrik' in df.columns:
-            column_mapping['Rubrik'] = 'description'
         elif 'Avsändare' in df.columns:
             column_mapping['Avsändare'] = 'description'
         elif 'Mottagare' in df.columns:

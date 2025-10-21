@@ -47,9 +47,12 @@ def calculate_historical_average(data: pd.DataFrame, window: int) -> Dict:
     else:
         return {}
     
-    # Filtrera data till de senaste X månaderna
+    # Filtrera data till de senaste X månaderna, men ENDAST fram till idag
     cutoff_date = datetime.now() - relativedelta(months=window)
-    filtered_data = data[data['date'] >= cutoff_date]
+    today = datetime.now()
+    
+    # Inkludera endast transaktioner mellan cutoff_date och idag
+    filtered_data = data[(data['date'] >= cutoff_date) & (data['date'] <= today)]
     
     # Filtrera endast utgifter (negativa belopp)
     expenses = filtered_data[filtered_data['amount'] < 0].copy()

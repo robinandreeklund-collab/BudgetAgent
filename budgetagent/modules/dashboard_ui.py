@@ -344,7 +344,7 @@ def settings_panel() -> html.Div:
             id='forecast-window',
             min=1,
             max=12,
-            value=6,
+            value=1,
             marks={i: str(i) for i in range(1, 13)}
         ),
         
@@ -740,7 +740,8 @@ def render_dashboard() -> None:
     def update_forecast(_):
         """Uppdaterar prognosgrafen."""
         try:
-            forecast_data = forecast_engine.simulate_monthly_balance(6)
+            # Standardprognos visar nuvarande dag och en månad framåt
+            forecast_data = forecast_engine.simulate_monthly_balance(1)
             return update_forecast_graph(forecast_data)
         except Exception as e:
             print(f"Fel vid uppdatering av prognos: {e}")

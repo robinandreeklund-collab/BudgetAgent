@@ -38,18 +38,27 @@ def load_file(path: str) -> pd.DataFrame:
     
     if suffix == '.csv':
         # Försök först med komma-separator, sedan tab
+        # Hantera olika encodings (Nordea kan använda UTF-8 med BOM eller Windows-1252)
         try:
-            df = pd.read_csv(path)
+            # Försök UTF-8 först (med BOM-hantering)
+            df = pd.read_csv(path, encoding='utf-8-sig')
             # Om endast en kolumn hittas, försök med tab som separator
             if len(df.columns) == 1:
-                df = pd.read_csv(path, sep='\t')
+                df = pd.read_csv(path, sep='\t', encoding='utf-8-sig')
             return df
-        except Exception as e:
-            # Försök med tab-separator
+        except (UnicodeDecodeError, Exception) as e1:
+            # Försök med Windows-1252 (vanlig för svenska banker)
             try:
-                return pd.read_csv(path, sep='\t')
-            except:
-                raise ValueError(f"Kunde inte läsa CSV-fil: {str(e)}")
+                df = pd.read_csv(path, encoding='windows-1252')
+                if len(df.columns) == 1:
+                    df = pd.read_csv(path, sep='\t', encoding='windows-1252')
+                return df
+            except Exception as e2:
+                # Försök med tab-separator direkt
+                try:
+                    return pd.read_csv(path, sep='\t', encoding='utf-8-sig')
+                except:
+                    raise ValueError(f"Kunde inte läsa CSV-fil. Försökte UTF-8 och Windows-1252. Fel: {str(e1)}")
     elif suffix in ['.xlsx', '.xls']:
         return pd.read_excel(path)
     elif suffix == '.json':
@@ -238,33 +247,46 @@ def import_and_parse(file_path: str) -> List[Transaction]:
     # Steg 3: Normalisera kolumner
     normalized_data = normalize_columns(raw_data, bank_format)
     
+    # Filtrera bort tomma rader (alla värden är NaN)
+    normalized_data = normalized_data.dropna(how='all')
+    
     # Steg 4: Konvertera till Transaction-objekt
     transactions = []
-    for _, row in normalized_data.iterrows():
+    for idx, row in normalized_data.iterrows():
         try:
+            # Hoppa över rader där datum saknas eller är ogiltigt
+            if pd.isna(row['date']) or str(row['date']).strip() == '':
+                continue
+            
             # Parsa datum
             date_val = pd.to_datetime(row['date']).date()
             
             # Konvertera belopp till Decimal (hantera komma som decimaltecken)
+            if pd.isna(row['amount']):
+                continue
             amount_str = str(row['amount']).replace(',', '.')
             amount_val = Decimal(amount_str)
             
             # Beskrivning
-            description = str(row['description'])
+            description = str(row['description']) if not pd.isna(row['description']) else ''
+            if description.strip() == '' or description.lower() == 'nan':
+                description = 'Transaktion'
             
             # Valuta
             currency = row.get('currency', 'SEK')
+            if pd.isna(currency) or str(currency).strip() == '':
+                currency = 'SEK'
             
             transaction = Transaction(
                 date=date_val,
                 amount=amount_val,
-                description=description,
-                currency=currency
+                description=description.strip(),
+                currency=str(currency)
             )
             transactions.append(transaction)
         except Exception as e:
             # Hoppa över transaktioner som inte kan parsas
-            print(f"Kunde inte parsa transaktion: {e}")
+            print(f"Kunde inte parsa transaktion på rad {idx}: {e}")
             continue
     
     return transactions

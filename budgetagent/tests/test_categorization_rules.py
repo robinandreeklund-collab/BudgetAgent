@@ -153,3 +153,208 @@ class TestCategorization:
         """Edge case: Tom beskrivning."""
         # TODO: Implementera test för tom beskrivning
         pass
+
+
+class TestHybridCategorization:
+    """Tester för hybrid-kategorisering med AI-fallback."""
+
+    def test_rule_based_categorization_with_confidence(self):
+        """Test att regelbaserad kategorisering ger högt säkerhetsvärde."""
+        from budgetagent.modules.categorize_expenses import auto_categorize
+        
+        # Skapa testdata
+        data = pd.DataFrame({
+            'description': ['ICA Maxi Stockholm', 'Circle K Bensinmack'],
+            'amount': [-350.50, -600.00]
+        })
+        
+        # Ladda regler
+        config_path = Path(__file__).parent.parent / "config" / "categorization_rules.yaml"
+        with open(config_path, 'r', encoding='utf-8') as f:
+            rules = yaml.safe_load(f)
+        
+        # Kategorisera
+        result = auto_categorize(data, rules)
+        
+        # Verifiera kategorier och säkerhetsvärden
+        assert result.loc[0, 'category'] == 'Mat'
+        assert result.loc[0, 'confidence'] >= 0.9
+        
+        assert result.loc[1, 'category'] == 'Transport'
+        assert result.loc[1, 'confidence'] >= 0.9
+
+    def test_unknown_transaction_flagged_for_review(self):
+        """Test att okända transaktioner flaggas för manuell granskning."""
+        from budgetagent.modules.categorize_expenses import auto_categorize
+        
+        # Skapa testdata med okänd transaktion
+        data = pd.DataFrame({
+            'description': ['Okänd butik AB', 'ICA Stockholm'],
+            'amount': [-100.00, -350.50]
+        })
+        
+        # Ladda regler
+        config_path = Path(__file__).parent.parent / "config" / "categorization_rules.yaml"
+        with open(config_path, 'r', encoding='utf-8') as f:
+            rules = yaml.safe_load(f)
+        
+        # Kategorisera
+        result = auto_categorize(data, rules)
+        
+        # Verifiera att okänd transaktion flaggas
+        assert result.loc[0, 'needs_review'] == True
+        assert result.loc[0, 'confidence'] < 0.7
+        
+        # ICA ska inte flaggas (hög säkerhet)
+        assert result.loc[1, 'needs_review'] == False
+
+    def test_ai_fallback_for_unknown_transactions(self):
+        """Test att AI-fallback används för okända transaktioner."""
+        from budgetagent.modules.categorize_expenses import auto_categorize
+        
+        # Skapa testdata
+        data = pd.DataFrame({
+            'description': ['Helt okänd beskrivning'],
+            'amount': [-100.00]
+        })
+        
+        # Regler med AI-fallback aktiverad
+        rules = {
+            'config': {
+                'use_rules': True,
+                'use_ai_fallback': True,
+                'confidence_threshold': 0.7,
+                'ai_min_confidence': 0.5
+            },
+            'mat': {'keywords': ['ica', 'coop'], 'confidence': 0.95}
+        }
+        
+        # Kategorisera
+        result = auto_categorize(data, rules)
+        
+        # Verifiera att något värde finns (även om det är okategoriserad)
+        assert pd.notna(result.loc[0, 'category'])
+        assert 'confidence' in result.columns
+
+    def test_get_transactions_needing_review(self):
+        """Test att hämta transaktioner som behöver granskning."""
+        from budgetagent.modules.categorize_expenses import (
+            auto_categorize, get_transactions_needing_review
+        )
+        
+        # Skapa testdata
+        data = pd.DataFrame({
+            'description': ['ICA Stockholm', 'Okänd transaktion', 'Circle K'],
+            'amount': [-350.50, -100.00, -600.00]
+        })
+        
+        # Ladda regler
+        config_path = Path(__file__).parent.parent / "config" / "categorization_rules.yaml"
+        with open(config_path, 'r', encoding='utf-8') as f:
+            rules = yaml.safe_load(f)
+        
+        # Kategorisera
+        categorized = auto_categorize(data, rules)
+        
+        # Hämta transaktioner som behöver granskning
+        needs_review = get_transactions_needing_review(categorized)
+        
+        # Verifiera att minst okända transaktionen finns
+        assert len(needs_review) >= 1
+        assert any('Okänd' in desc for desc in needs_review['description'].values)
+
+    def test_get_uncategorized_transactions(self):
+        """Test att hämta okategoriserade transaktioner."""
+        from budgetagent.modules.categorize_expenses import (
+            auto_categorize, get_uncategorized_transactions
+        )
+        
+        # Skapa testdata
+        data = pd.DataFrame({
+            'description': ['ICA Stockholm', 'Helt okänd butik XYZ'],
+            'amount': [-350.50, -100.00]
+        })
+        
+        # Regler utan AI-fallback
+        rules = {
+            'config': {
+                'use_rules': True,
+                'use_ai_fallback': False
+            },
+            'mat': {'keywords': ['ica'], 'confidence': 0.95}
+        }
+        
+        # Kategorisera
+        categorized = auto_categorize(data, rules)
+        
+        # Hämta okategoriserade
+        uncategorized = get_uncategorized_transactions(categorized)
+        
+        # Verifiera att okänd transaktion är okategoriserad
+        assert len(uncategorized) >= 1
+        assert 'okänd' in uncategorized.iloc[0]['description'].lower()
+
+    def test_confidence_threshold_configuration(self):
+        """Test att säkerhetströskelvärde kan konfigureras."""
+        from budgetagent.modules.categorize_expenses import auto_categorize
+        
+        # Skapa testdata
+        data = pd.DataFrame({
+            'description': ['Okänd butik'],
+            'amount': [-100.00]
+        })
+        
+        # Regler med lägre tröskelvärde
+        rules = {
+            'config': {
+                'use_rules': True,
+                'use_ai_fallback': True,
+                'confidence_threshold': 0.3,  # Lägre tröskelvärde
+                'ai_min_confidence': 0.2
+            },
+            'mat': {'keywords': ['ica'], 'confidence': 0.95}
+        }
+        
+        # Kategorisera
+        result = auto_categorize(data, rules)
+        
+        # Med lägre tröskelvärde kan AI-fallback ge resultat utan flaggning
+        assert pd.notna(result.loc[0, 'category'])
+
+    def test_categorize_transactions_with_confidence(self):
+        """Test att categorize_transactions returnerar säkerhetsvärden."""
+        from budgetagent.modules.categorize_expenses import categorize_transactions
+        from budgetagent.modules.models import Transaction
+        from datetime import date
+        from decimal import Decimal
+        
+        # Skapa testdata
+        transactions = [
+            Transaction(
+                date=date(2025, 1, 15),
+                amount=Decimal('-350.50'),
+                description='ICA Maxi Stockholm',
+                currency='SEK'
+            ),
+            Transaction(
+                date=date(2025, 1, 16),
+                amount=Decimal('-100.00'),
+                description='Okänd butik',
+                currency='SEK'
+            )
+        ]
+        
+        # Ladda regler
+        config_path = Path(__file__).parent.parent / "config" / "categorization_rules.yaml"
+        with open(config_path, 'r', encoding='utf-8') as f:
+            rules = yaml.safe_load(f)
+        
+        # Kategorisera
+        result = categorize_transactions(transactions, rules)
+        
+        # Verifiera att metadata innehåller säkerhetsvärden
+        assert 'confidence' in result[0].metadata
+        assert float(result[0].metadata['confidence']) >= 0.9
+        
+        # Okänd transaktion ska ha needs_review
+        assert 'needs_review' in result[1].metadata or result[1].category == 'Okategoriserad'

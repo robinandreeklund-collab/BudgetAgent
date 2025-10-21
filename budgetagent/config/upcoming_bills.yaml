@@ -33,17 +33,4 @@ upcoming_bills:
       name: Försäkring
       paid: false
       recurring: true
-    - amount: 399.0
-      category: Boende
-      due_date: '2025-12-15'
-      frequency: monthly
-      name: Internet
-      paid: false
-      recurring: true
-    - amount: 450.0
-      category: Försäkring
-      due_date: '2025-12-20'
-      frequency: monthly
-      name: Försäkring
-      paid: false
-      recurring: true
+# Duplicate "Internet" and "Försäkring" entries removed.

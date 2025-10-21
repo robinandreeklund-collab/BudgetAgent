@@ -270,7 +270,26 @@ def extract_balance_info(raw_data: pd.DataFrame, bank_format: str) -> Optional[t
                 if not dates.empty:
                     balance_date = dates.max().date()
         
-        # Försök extrahera saldo
+        # Försök extrahera saldo från raden med senaste datumet
+        # Hitta index för raden med senaste datum
+        latest_row_idx = None
+        if 'Bokföringsdatum' in raw_data.columns:
+            date_col = raw_data['Bokföringsdatum'].dropna()
+            if not date_col.empty:
+                dates = pd.to_datetime(date_col, errors='coerce')
+                if not dates.isna().all():
+                    latest_row_idx = dates.idxmax()
+        elif 'Bokföringsdag' in raw_data.columns:
+            date_col = raw_data['Bokföringsdag'].dropna()
+            if not date_col.empty:
+                dates = pd.to_datetime(date_col, errors='coerce')
+                if not dates.isna().all():
+                    latest_row_idx = dates.idxmax()
+        
+        # Om vi inte kunde hitta via datum, använd sista raden
+        if latest_row_idx is None:
+            latest_row_idx = raw_data.index[-1]
+        
         # Fall 1: Saldo är valuta och Rubrik är saldo-beloppet
         if 'Saldo' in raw_data.columns and 'Rubrik' in raw_data.columns and 'Valuta' in raw_data.columns:
             # Kontrollera om Saldo-kolumnen innehåller valuta-värden (SEK, EUR etc)
@@ -279,9 +298,9 @@ def extract_balance_info(raw_data: pd.DataFrame, bank_format: str) -> Optional[t
                 first_val = str(saldo_sample.iloc[0]).strip().upper()
                 if first_val in ['SEK', 'EUR', 'USD', 'NOK', 'DKK']:
                     # Detta är formatet där Saldo=valuta och Rubrik=saldo-belopp
-                    rubrik_col = raw_data['Rubrik']
-                    if not rubrik_col.isna().all():
-                        balance_val = rubrik_col.dropna().iloc[-1]
+                    # Hämta värdet från raden med senaste datum
+                    if latest_row_idx in raw_data.index and not pd.isna(raw_data.loc[latest_row_idx, 'Rubrik']):
+                        balance_val = raw_data.loc[latest_row_idx, 'Rubrik']
                         try:
                             balance = Decimal(str(balance_val).replace(',', '.').replace(' ', ''))
                         except:
@@ -289,20 +308,20 @@ def extract_balance_info(raw_data: pd.DataFrame, bank_format: str) -> Optional[t
                     currency = first_val
                 else:
                     # Saldo innehåller numeriska värden
-                    balance_val = saldo_sample.iloc[-1]
-                    try:
-                        balance = Decimal(str(balance_val).replace(',', '.').replace(' ', ''))
-                    except:
-                        pass
+                    if latest_row_idx in raw_data.index and not pd.isna(raw_data.loc[latest_row_idx, 'Saldo']):
+                        balance_val = raw_data.loc[latest_row_idx, 'Saldo']
+                        try:
+                            balance = Decimal(str(balance_val).replace(',', '.').replace(' ', ''))
+                        except:
+                            pass
                     # Hämta valuta från Valuta-kolumnen
                     if not raw_data['Valuta'].isna().all():
                         currency = raw_data['Valuta'].dropna().iloc[0]
         
         # Fall 2: Saldo är en vanlig kolumn med saldovärden
         elif 'Saldo' in raw_data.columns:
-            saldo_col = raw_data['Saldo']
-            if not saldo_col.isna().all():
-                balance_val = saldo_col.dropna().iloc[-1]
+            if latest_row_idx in raw_data.index and not pd.isna(raw_data.loc[latest_row_idx, 'Saldo']):
+                balance_val = raw_data.loc[latest_row_idx, 'Saldo']
                 try:
                     # Testa om det är ett numeriskt värde
                     balance = Decimal(str(balance_val).replace(',', '.').replace(' ', ''))
@@ -322,9 +341,8 @@ def extract_balance_info(raw_data: pd.DataFrame, bank_format: str) -> Optional[t
                               'Avsändare', 'Mottagare', 'Valuta']:
                     # Testa om denna kolumn innehåller numeriska värden
                     try:
-                        test_col = raw_data[col].dropna()
-                        if not test_col.empty:
-                            last_val = test_col.iloc[-1]
+                        if latest_row_idx in raw_data.index and not pd.isna(raw_data.loc[latest_row_idx, col]):
+                            last_val = raw_data.loc[latest_row_idx, col]
                             # Försök konvertera till Decimal
                             balance = Decimal(str(last_val).replace(',', '.').replace(' ', ''))
                             break
@@ -332,11 +350,23 @@ def extract_balance_info(raw_data: pd.DataFrame, bank_format: str) -> Optional[t
                         continue
     
     elif bank_format == "SEB":
+        # Hitta raden med senaste datum för SEB
+        latest_row_idx = None
+        if 'Bokföringsdatum' in raw_data.columns:
+            date_col = raw_data['Bokföringsdatum'].dropna()
+            if not date_col.empty:
+                dates = pd.to_datetime(date_col, errors='coerce')
+                if not dates.isna().all():
+                    latest_row_idx = dates.idxmax()
+        
+        # Om vi inte kunde hitta via datum, använd sista raden
+        if latest_row_idx is None:
+            latest_row_idx = raw_data.index[-1]
+        
         # SEB har alltid Saldo-kolumn
         if 'Saldo' in raw_data.columns:
-            saldo_col = raw_data['Saldo']
-            if not saldo_col.isna().all():
-                balance_val = saldo_col.dropna().iloc[-1]
+            if latest_row_idx in raw_data.index and not pd.isna(raw_data.loc[latest_row_idx, 'Saldo']):
+                balance_val = raw_data.loc[latest_row_idx, 'Saldo']
                 try:
                     balance = Decimal(str(balance_val).replace(',', '.').replace(' ', ''))
                 except:

@@ -14,6 +14,7 @@ Exempel på YAML-konfiguration används från flera filer:
 import pandas as pd
 from typing import Optional, List, Dict
 from dash import Dash, html, dcc, Input, Output, State, ALL, MATCH
+from dash.exceptions import PreventUpdate
 import plotly.graph_objects as go
 import plotly.express as px
 from .models import Transaction, Bill, Income, ForecastData
@@ -935,8 +936,9 @@ def render_dashboard() -> None:
     )
     def confirm_and_save_transactions(n_clicks, category_values, store_data):
         """Sparar transaktioner med uppdaterade kategorier."""
+        # Använd no_update för att undvika att rensa panelen när callback inte ska göra något
         if not n_clicks or not store_data or not store_data.get('transactions'):
-            return html.Div(), 0, html.Div(), None
+            raise PreventUpdate
         
         try:
             # Reconstruct transactions from store

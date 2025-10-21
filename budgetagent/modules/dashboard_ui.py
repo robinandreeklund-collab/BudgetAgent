@@ -1016,6 +1016,17 @@ def render_dashboard() -> None:
                         html.Span(account.account_number or 'Ej angivet')
                     ]),
                     html.P([
+                        html.Strong('Aktuellt saldo: '),
+                        html.Span(
+                            f'{account.current_balance:,.2f} {account.balance_currency}' if account.current_balance else 'Ej tillgängligt',
+                            style={'fontWeight': 'bold', 'color': '#28a745' if account.current_balance and account.current_balance > 0 else '#dc3545'}
+                        )
+                    ]),
+                    html.P([
+                        html.Strong('Saldo per: '),
+                        html.Span(str(account.balance_date) if account.balance_date else 'Okänt')
+                    ]) if account.balance_date else html.Div(),
+                    html.P([
                         html.Strong('Antal importerade filer: '),
                         html.Span(str(len(account.imported_files)))
                     ]),

@@ -287,12 +287,18 @@ class Account(BaseModel):
         imported_files: Lista över importerade filnamn med checksums
         last_import_date: Senaste importdatum
         transaction_hashes: Set av transaktions-hasher för dupliceringsskydd
+        current_balance: Aktuellt saldo (från senaste import)
+        balance_date: Datum för aktuellt saldo
+        balance_currency: Valuta för saldo (standard: SEK)
     """
     account_name: str
     account_number: Optional[str] = None
     imported_files: List[Dict[str, str]] = Field(default_factory=list)
     last_import_date: Optional[datetime] = None
     transaction_hashes: set = Field(default_factory=set)
+    current_balance: Optional[Decimal] = None
+    balance_date: Optional[date] = None
+    balance_currency: str = "SEK"
     
     class Config:
         """Pydantic configuration."""
@@ -304,6 +310,9 @@ class Account(BaseModel):
                     {"filename": "PERSONKONTO 1709 20 72840 - 2025-10-21 09.39.41.csv", "checksum": "abc123"}
                 ],
                 "last_import_date": "2025-10-21T09:39:41",
-                "transaction_hashes": set()
+                "transaction_hashes": set(),
+                "current_balance": "15000.00",
+                "balance_date": "2025-10-21",
+                "balance_currency": "SEK"
             }
         }

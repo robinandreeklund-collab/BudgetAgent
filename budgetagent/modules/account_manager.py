@@ -459,3 +459,33 @@ def clear_all_accounts() -> None:
     test/demo-syften eller när du vill börja om från scratch.
     """
     save_accounts({})
+
+
+def update_account_balance(account_name: str, balance, balance_date, currency: str = "SEK") -> None:
+    """
+    Uppdaterar saldoinformation för ett konto.
+    
+    Sparar det aktuella saldot, datum för saldot och valuta.
+    Detta används för att hålla koll på kontobalanser och kan
+    användas i prognoser och budgetplanering.
+    
+    Args:
+        account_name: Namn på kontot
+        balance: Saldo som Decimal
+        balance_date: Datum för saldot
+        currency: Valuta (standard: SEK)
+    """
+    from decimal import Decimal
+    
+    accounts = load_accounts()
+    
+    if account_name not in accounts:
+        accounts[account_name] = get_or_create_account(account_name)
+    
+    account = accounts[account_name]
+    account.current_balance = Decimal(str(balance))
+    account.balance_date = balance_date
+    account.balance_currency = currency
+    
+    accounts[account_name] = account
+    save_accounts(accounts)

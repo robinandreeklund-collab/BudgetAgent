@@ -228,6 +228,77 @@ def normalize_columns(data: pd.DataFrame, format: str) -> pd.DataFrame:
     return df[available_cols]
 
 
+def extract_balance_info(raw_data: pd.DataFrame, bank_format: str) -> Optional[tuple]:
+    """
+    Extraherar saldoinformation från bankdata.
+    
+    Letar efter saldo-kolumn i bankunderlaget och extraherar det senaste saldot
+    samt datum för detta saldo.
+    
+    Args:
+        raw_data: DataFrame med rådata
+        bank_format: Bankformat identifierat av detect_format()
+        
+    Returns:
+        Tuple (balance, balance_date, currency) eller None om inget saldo hittas
+    """
+    from decimal import Decimal
+    
+    balance = None
+    balance_date = None
+    currency = "SEK"
+    
+    # Olika banker har olika sätt att visa saldo
+    if bank_format == "Nordea":
+        # Nordea kan ha antingen "Saldo" eller en kolumn med saldovärden
+        # Leta efter kolumn som heter "Saldo" och inte används för valuta
+        if 'Saldo' in raw_data.columns and 'Valuta' in raw_data.columns:
+            # Saldo är en separat kolumn med saldovärden
+            saldo_col = raw_data['Saldo']
+            # Ta sista icke-NaN värdet
+            if not saldo_col.isna().all():
+                balance_val = saldo_col.dropna().iloc[-1]
+                try:
+                    balance = Decimal(str(balance_val).replace(',', '.').replace(' ', ''))
+                except:
+                    pass
+        
+        # Få datum från sista transaktionen
+        if 'Bokföringsdatum' in raw_data.columns:
+            date_col = raw_data['Bokföringsdatum'].dropna()
+            if not date_col.empty:
+                balance_date = pd.to_datetime(date_col.iloc[-1]).date()
+        elif 'Bokföringsdag' in raw_data.columns:
+            date_col = raw_data['Bokföringsdag'].dropna()
+            if not date_col.empty:
+                balance_date = pd.to_datetime(date_col.iloc[-1]).date()
+        
+        # Valuta
+        if 'Valuta' in raw_data.columns and not raw_data['Valuta'].isna().all():
+            currency = raw_data['Valuta'].dropna().iloc[0]
+    
+    elif bank_format == "SEB":
+        # SEB har alltid Saldo-kolumn
+        if 'Saldo' in raw_data.columns:
+            saldo_col = raw_data['Saldo']
+            if not saldo_col.isna().all():
+                balance_val = saldo_col.dropna().iloc[-1]
+                try:
+                    balance = Decimal(str(balance_val).replace(',', '.').replace(' ', ''))
+                except:
+                    pass
+        
+        if 'Bokföringsdatum' in raw_data.columns:
+            date_col = raw_data['Bokföringsdatum'].dropna()
+            if not date_col.empty:
+                balance_date = pd.to_datetime(date_col.iloc[-1]).date()
+    
+    if balance is not None and balance_date is not None:
+        return (balance, balance_date, currency)
+    
+    return None
+
+
 def import_and_parse(file_path: str, check_duplicates: bool = True) -> List[Transaction]:
     """
     Importerar och konverterar bankdata till Transaction-objekt.
@@ -260,6 +331,9 @@ def import_and_parse(file_path: str, check_duplicates: bool = True) -> List[Tran
     
     # Steg 4: Detektera format
     bank_format = detect_format(raw_data)
+    
+    # Steg 4.5: Extrahera saldoinformation innan normalisering
+    balance_info = extract_balance_info(raw_data, bank_format)
     
     # Steg 5: Normalisera kolumner
     normalized_data = normalize_columns(raw_data, bank_format)
@@ -318,6 +392,11 @@ def import_and_parse(file_path: str, check_duplicates: bool = True) -> List[Tran
         # Registrera de nya transaktionerna
         if new_transactions:
             account_manager.register_transactions(account_name, new_transactions)
+        
+        # Uppdatera saldoinformation om tillgänglig
+        if balance_info:
+            balance, balance_date, currency = balance_info
+            account_manager.update_account_balance(account_name, balance, balance_date, currency)
         
         # Markera filen som importerad
         account_manager.add_imported_file(account_name, file_path)

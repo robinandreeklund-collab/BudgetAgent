@@ -100,11 +100,65 @@ Alla funktioner har svenska docstrings.
 
 ## ⚠️ Framtida Förbättringar
 
-1. Transaktionstabell med faktisk data i UI
-2. Sentence-transformers för semantisk likhet
-3. Persistens för kategoriserade transaktioner
-4. Bulk-operations callbacks
-5. Träningsvisualisering
+Systemet har en solid grund och kan utökas med följande funktioner:
+
+### 1. Transaktionstabell med faktisk data i UI
+**Beskrivning:** Fullständig transaktionstabell i kontopanelen med kategori-dropdowns per rad.
+- UI-struktur finns redan (paginering, kontroller)
+- Behöver koppling till persistent transaktionslagring
+- Möjliggör direkt kategorisering och granskning av alla transaktioner
+- **Effort:** Medel (1-2 dagar)
+
+### 2. Sentence-transformers för semantisk likhet
+**Beskrivning:** Uppgradering från TF-IDF till sentence-transformers för bättre förståelse.
+- Arkitekturen är redan pluggbar
+- `embedding_match()` kan enkelt utökas
+- Bättre kategorisering genom semantisk förståelse
+- **Dependency:** `sentence-transformers>=2.0.0`
+- **Effort:** Låg (några timmar)
+
+```python
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+embeddings = model.encode(descriptions)
+```
+
+### 3. Persistens för kategoriserade transaktioner
+**Beskrivning:** Långtidslagring av transaktioner med deras kategorier.
+- För närvarande kategoriseras transaktioner men sparas inte long-term
+- Möjliggör historisk analys, rapporter och ML-träning
+- **Förslag:** SQLite-databas eller utökad YAML-struktur
+- **Effort:** Medel (1-2 dagar)
+
+### 4. Bulk-operations callbacks i UI
+**Beskrivning:** UI-callbacks för att kategorisera många transaktioner samtidigt.
+- API-funktioner finns redan (`bulk_label`)
+- UI-callbacks behöver implementeras i dashboard
+- Snabbare arbetsflöde för användare med många transaktioner
+- **Effort:** Låg (några timmar)
+
+### 5. Träningsvisualisering
+**Beskrivning:** Grafisk visualisering av AI-modellens träningsprogress.
+- Träningsstatistik finns, visualisering saknas
+- Användaren ser hur modellen förbättras över tid
+- **Förslag:** 
+  - Confusion matrix för kategorier
+  - Accuracy/F1-score över tid
+  - Fördelning av träningsdata (stapeldiagram)
+- **Effort:** Medel (1 dag)
+
+### Prioritering
+
+**Hög prioritet (nästa release):**
+1. Transaktionstabell med faktisk data
+2. Persistens för kategoriserade transaktioner
+
+**Medel prioritet:**
+3. Bulk-operations callbacks
+4. Träningsvisualisering
+
+**Långsiktig:**
+5. Sentence-transformers (kräver mer compute-resurser)
 
 ---
 

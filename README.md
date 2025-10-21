@@ -365,6 +365,60 @@ Systemet genererar prognosgrafer som visar framtida saldo baserat på historiska
 
 *Prognosgrafen visar simulerat saldo över tid med hänsyn till förväntade utgifter och inkomster.*
 
+## 🚀 Framtida Förbättringar
+
+Systemet har en solid grund och kan utökas med följande funktioner:
+
+### 1. Transaktionstabell med faktisk data i UI
+- **Vad:** Fullständig transaktionstabell i kontopanelen med kategori-dropdowns per rad
+- **Status:** UI-struktur finns, behöver koppling till persistent transaktionslagring
+- **Nytta:** Möjliggör direkt kategorisering och granskning av alla transaktioner
+
+### 2. Sentence-transformers för semantisk likhet
+- **Vad:** Uppgradering från TF-IDF till sentence-transformers för bättre förståelse av transaktionsbeskrivningar
+- **Status:** Arkitekturen är pluggbar, `embedding_match()` kan enkelt utökas
+- **Nytta:** Bättre kategorisering av nya/okända transaktioner genom semantisk förståelse
+- **Implementation:**
+  ```python
+  from sentence_transformers import SentenceTransformer
+  model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+  embeddings = model.encode(descriptions)
+  ```
+
+### 3. Persistens för kategoriserade transaktioner
+- **Vad:** Långtidslagring av transaktioner med deras kategorier i databas eller strukturerad fil
+- **Status:** Transaktioner kategoriseras men sparas inte long-term med kategorier
+- **Nytta:** Möjliggör historisk analys, rapporter och ML-träning på större dataset
+- **Förslag:** SQLite-databas eller utökad YAML-struktur
+
+### 4. Bulk-operations callbacks i UI
+- **Vad:** UI-callbacks för att kategorisera många transaktioner samtidigt
+- **Status:** API-funktioner finns (`bulk_label`), UI-callbacks behöver implementeras
+- **Nytta:** Snabbare arbetsflöde för användare med många transaktioner
+- **Implementation:** Dash-callbacks för att koppla bulk-knappar till API
+
+### 5. Träningsvisualisering
+- **Vad:** Grafisk visualisering av AI-modellens träningsprogress och prestanda
+- **Status:** Träningsstatistik finns, visualisering saknas
+- **Nytta:** Användaren ser hur modellen förbättras över tid
+- **Förslag:** 
+  - Confusion matrix för kategorier
+  - Accuracy/F1-score över tid
+  - Fördelning av träningsdata per kategori (stapeldiagram)
+
+### Prioritering
+
+**Hög prioritet (nästa release):**
+1. Transaktionstabell med faktisk data
+2. Persistens för kategoriserade transaktioner
+
+**Medel prioritet:**
+3. Bulk-operations callbacks
+4. Träningsvisualisering
+
+**Långsiktig:**
+5. Sentence-transformers (kräver mer compute-resurser)
+
 🤝 Bidra
 Alla moduler är dokumenterade och testade. Se config/test_plan.yaml för att förstå testflödet. Nya contributors kan börja med att läsa project_structure.yaml och settings_panel.yaml.
 

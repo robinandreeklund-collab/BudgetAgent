@@ -1,0 +1,43 @@
+accounts:
+  empty_nordea:
+    account_name: empty_nordea
+    account_number: null
+    imported_files:
+    - checksum: 206bec5bd5b0053f9fb20458c73cca08
+      filename: empty_nordea.csv
+      import_date: '2025-10-21T10:37:03.128566'
+    last_import_date: '2025-10-21T10:37:03.128571'
+    transaction_hashes: []
+  nordea_no_rubrik:
+    account_name: nordea_no_rubrik
+    account_number: null
+    imported_files:
+    - checksum: 1af853eee644bb97d50db2a9618dc49a
+      filename: nordea_no_rubrik.csv
+      import_date: '2025-10-21T10:37:03.144126'
+    last_import_date: '2025-10-21T10:37:03.144131'
+    transaction_hashes:
+    - 141593f89c6f14369af18bdcce7c6b4d79e167619c6acf156940dc3b76abe539
+  nordea_semicolon:
+    account_name: nordea_semicolon
+    account_number: null
+    imported_files:
+    - checksum: 74da14c2a708fdbfbda070992d6cd098
+      filename: nordea_semicolon.csv
+      import_date: '2025-10-21T10:37:03.165978'
+    last_import_date: '2025-10-21T10:37:03.165984'
+    transaction_hashes:
+    - d69b44460bfa66d7f8cf6c3e249a8079bd8f1869089c1445a8f181b55e423a14
+    - cfb09d0d9e990020a4960ad5224a2878a1c690f4f6a60fe5e7d7c12e3b9adc56
+  test_nordea:
+    account_name: test_nordea
+    account_number: null
+    imported_files:
+    - checksum: 5e2c7a1944afe316641b1a497b3d462e
+      filename: test_nordea.csv
+      import_date: '2025-10-21T10:37:03.120311'
+    last_import_date: '2025-10-21T10:37:03.120318'
+    transaction_hashes:
+    - 5f7e124d0dd2a4c0df95e9f1070098889f309e9bc14745db99302ebbdf7b4ea5
+    - 1c4b5ef006e60ab915b0b2de3c9e230f2cde1f0a31bca03b758689de1e68e7d4
+    - 8989cd773786d5229cc3ac8bb8ce58a209cbecf5156f6af2501b47f77d33ebc6

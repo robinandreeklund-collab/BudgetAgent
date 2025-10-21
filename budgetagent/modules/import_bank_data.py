@@ -228,35 +228,46 @@ def normalize_columns(data: pd.DataFrame, format: str) -> pd.DataFrame:
     return df[available_cols]
 
 
-def import_and_parse(file_path: str) -> List[Transaction]:
+def import_and_parse(file_path: str, check_duplicates: bool = True) -> List[Transaction]:
     """
     Importerar och konverterar bankdata till Transaction-objekt.
     
     Huvudfunktion som kombinerar filimport, formatdetektering och
-    konvertering till standardiserade Transaction-objekt.
+    konvertering till standardiserade Transaction-objekt. Inkluderar
+    automatisk kontohantering och dupliceringsskydd.
     
     Args:
         file_path: Sökväg till filen att importera
+        check_duplicates: Om True, kontrollera och filtrera bort dubbletter
         
     Returns:
-        Lista med Transaction-objekt
+        Lista med Transaction-objekt (endast nya transaktioner om check_duplicates=True)
     """
     from datetime import datetime
     from decimal import Decimal
+    from . import account_manager
     
-    # Steg 1: Ladda fil
+    # Steg 1: Extrahera kontonamn från filnamn
+    account_name = account_manager.extract_account_from_filename(file_path)
+    
+    # Steg 2: Kontrollera om filen redan har importerats
+    if check_duplicates and account_manager.is_file_imported(account_name, file_path):
+        print(f"Fil {file_path} har redan importerats för konto {account_name}")
+        return []
+    
+    # Steg 3: Ladda fil
     raw_data = load_file(file_path)
     
-    # Steg 2: Detektera format
+    # Steg 4: Detektera format
     bank_format = detect_format(raw_data)
     
-    # Steg 3: Normalisera kolumner
+    # Steg 5: Normalisera kolumner
     normalized_data = normalize_columns(raw_data, bank_format)
     
     # Filtrera bort tomma rader (alla värden är NaN)
     normalized_data = normalized_data.dropna(how='all')
     
-    # Steg 4: Konvertera till Transaction-objekt
+    # Steg 6: Konvertera till Transaction-objekt
     transactions = []
     for idx, row in normalized_data.iterrows():
         try:
@@ -294,5 +305,23 @@ def import_and_parse(file_path: str) -> List[Transaction]:
             # Hoppa över transaktioner som inte kan parsas
             print(f"Kunde inte parsa transaktion på rad {idx}: {e}")
             continue
+    
+    # Steg 7: Filtrera bort dubbletter av transaktioner
+    if check_duplicates:
+        new_transactions, duplicates = account_manager.filter_duplicate_transactions(
+            account_name, transactions
+        )
+        
+        if duplicates:
+            print(f"Hittade {len(duplicates)} dubbletter som filtrerades bort")
+        
+        # Registrera de nya transaktionerna
+        if new_transactions:
+            account_manager.register_transactions(account_name, new_transactions)
+        
+        # Markera filen som importerad
+        account_manager.add_imported_file(account_name, file_path)
+        
+        return new_transactions
     
     return transactions

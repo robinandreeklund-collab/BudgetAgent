@@ -18,6 +18,55 @@ import plotly.graph_objects as go
 import plotly.express as px
 from .models import Transaction, Bill, Income, ForecastData
 from . import upcoming_bills, income_tracker, forecast_engine, alerts_and_insights, query_parser
+import signal
+import sys
+import atexit
+from pathlib import Path
+
+
+def cleanup_demo_data():
+    """
+    Rensar all demo-data när servern avslutas.
+    
+    Denna funktion anropas automatiskt vid Ctrl+C eller serveravslut.
+    Den tömmer alla YAML-filer och CSV-filer med användardata.
+    """
+    print("\n🧹 Rensar demo-data...")
+    
+    try:
+        # Rensa YAML-filer
+        config_dir = Path(__file__).parent.parent / "config"
+        
+        # Töm upcoming_bills.yaml
+        bills_file = config_dir / "upcoming_bills.yaml"
+        bills_file.write_text("upcoming_bills:\n  bills: []\n", encoding='utf-8')
+        
+        # Töm income_tracker.yaml  
+        income_file = config_dir / "income_tracker.yaml"
+        income_file.write_text("income_tracker:\n  incomes: []\n  people: []\n", encoding='utf-8')
+        
+        # Ta bort transaktionsfil
+        data_dir = Path(__file__).parent.parent / "data"
+        transactions_file = data_dir / "transactions.csv"
+        if transactions_file.exists():
+            transactions_file.unlink()
+        
+        print("✅ Demo-data rensad!")
+    except Exception as e:
+        print(f"⚠️ Kunde inte rensa all data: {e}")
+
+
+def signal_handler(sig, frame):
+    """Hanterar Ctrl+C och avslutar servern rent."""
+    print("\n⏹️  Avslutar server...")
+    cleanup_demo_data()
+    sys.exit(0)
+
+
+# Registrera cleanup-funktioner
+atexit.register(cleanup_demo_data)
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 
 
 def create_app_layout() -> html.Div:
@@ -495,16 +544,18 @@ def render_dashboard() -> None:
     
     # Callback för att lägga till inkomst
     @app.callback(
-        Output('input-feedback', 'children', allow_duplicate=True),
+        [Output('input-feedback', 'children', allow_duplicate=True),
+         Output('data-update-trigger', 'data', allow_duplicate=True)],
         Input('add-income-button', 'n_clicks'),
         State('income-person', 'value'),
         State('income-source', 'value'),
         State('income-amount', 'value'),
         State('income-date', 'date'),
         State('income-recurring', 'value'),
+        State('data-update-trigger', 'data'),
         prevent_initial_call=True
     )
-    def add_income_callback(n_clicks, person, source, amount, date, recurring):
+    def add_income_callback(n_clicks, person, source, amount, date, recurring, current_trigger):
         """Lägger till en ny inkomst."""
         if n_clicks and person and source and amount and date:
             try:
@@ -518,10 +569,10 @@ def render_dashboard() -> None:
                     frequency='monthly' if is_recurring else None
                 )
                 income_tracker.add_income(income)
-                return html.Div(f"✅ Inkomst för '{person}' tillagd!", style={'color': 'green'})
+                return html.Div(f"✅ Inkomst för '{person}' tillagd!", style={'color': 'green'}), current_trigger + 1
             except Exception as e:
-                return html.Div(f"❌ Fel: {str(e)}", style={'color': 'red'})
-        return html.Div("Fyll i alla fält", style={'color': 'orange'})
+                return html.Div(f"❌ Fel: {str(e)}", style={'color': 'red'}), current_trigger
+        return html.Div("Fyll i alla fält", style={'color': 'orange'}), current_trigger
     
     # Callback för agentfrågor
     @app.callback(

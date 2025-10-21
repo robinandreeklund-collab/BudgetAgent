@@ -3,17 +3,17 @@
 config:
   # Regelbaserad kategorisering körs först
   use_rules: true
-  
+
   # AI-fallback aktiveras vid låg säkerhet eller okänd kategori
   use_ai_fallback: true
-  
+
   # Tröskelvärde för säkerhet (0.0-1.0)
   # Under detta värde flaggas transaktionen för manuell granskning
   confidence_threshold: 0.7
-  
+
   # Flagga transaktioner för manuell granskning om säkerheten är låg
   flag_low_confidence: true
-  
+
   # Minsta tröskelvärde för AI-kategorisering
   # Under detta används "Okategoriserad"
   ai_min_confidence: 0.5

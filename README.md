@@ -419,6 +419,245 @@ Systemet har en solid grund och kan utökas med följande funktioner:
 **Långsiktig:**
 5. Sentence-transformers (kräver mer compute-resurser)
 
+## 🔌 Classification API
+
+BudgetAgent erbjuder nu ett Flask-baserat REST API för transaktionskategorisering och AI-träning. API:t är designat för att integreras med dashboard-featuren och möjliggör:
+
+- Hämta konton och transaktioner
+- Spara träningsexempel för AI
+- Förhandsgranska klassificering
+- Persistera kategoritilldelningar
+- Triggera asynkron modellträning
+
+### Starta API-servern
+
+```bash
+python backend/api/classification.py
+```
+
+API:t startar på: **http://localhost:5000**
+
+### API Endpoints
+
+#### GET /api/accounts
+Hämtar alla registrerade bankkonton.
+
+```bash
+curl http://localhost:5000/api/accounts
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "accounts": [...],
+  "count": 3
+}
+```
+
+#### GET /api/accounts/{accountId}/transactions
+Hämtar alla transaktioner för ett specifikt konto.
+
+```bash
+curl "http://localhost:5000/api/accounts/PERSONKONTO_1709/transactions?limit=50&offset=0"
+```
+
+**Query parameters:**
+- `limit`: Max antal transaktioner (default: 100)
+- `offset`: Offset för paginering (default: 0)
+
+**Response:**
+```json
+{
+  "success": true,
+  "account_id": "PERSONKONTO_1709",
+  "transactions": [...],
+  "total": 150,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+#### POST /api/transactions/{transactionId}/label
+Sparar ett träningsexempel för AI-modellen. Detta används när användaren väljer rätt kategori i dashboard och klickar "Lär AI".
+
+```bash
+curl -X POST http://localhost:5000/api/transactions/abc123/label \
+  -H "Content-Type: application/json" \
+  -d '{
+    "description": "ICA Maxi Linköping",
+    "category": "mat"
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Träningsexempel sparat",
+  "training_example": {
+    "description": "ICA Maxi Linköping",
+    "category": "mat",
+    "date_added": "2025-10-21T10:30:00",
+    "confidence": 1.0,
+    "source": "manual"
+  },
+  "total_examples": 5,
+  "can_train": true
+}
+```
+
+#### POST /api/transactions/{transactionId}/assign
+Persisterar en kategorilldelning för en transaktion. Detta sparar den tilldelade kategorin permanent.
+
+```bash
+curl -X POST http://localhost:5000/api/transactions/abc123/assign \
+  -H "Content-Type: application/json" \
+  -d '{
+    "category": "mat"
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Kategori tilldelad",
+  "transaction_id": "abc123",
+  "category": "mat"
+}
+```
+
+#### POST /api/preview
+Förhandsgranskar klassificering för en eller flera transaktioner med hybrid-klassificering (regelbaserad + AI).
+
+```bash
+curl -X POST http://localhost:5000/api/preview \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transactions": [
+      {"description": "ICA Maxi Linköping"},
+      {"description": "Circle K bensinstation"}
+    ]
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "session_id": "preview_a1b2c3d4",
+  "results": [
+    {
+      "description": "ICA Maxi Linköping",
+      "predicted_category": "mat",
+      "confidence": 0.95,
+      "needs_review": false
+    },
+    {
+      "description": "Circle K bensinstation",
+      "predicted_category": "transport",
+      "confidence": 0.95,
+      "needs_review": false
+    }
+  ],
+  "total": 2
+}
+```
+
+#### POST /api/train
+Triggar asynkron träning av AI-modellen baserat på sparade träningsexempel.
+
+```bash
+curl -X POST "http://localhost:5000/api/train?async=true"
+```
+
+**Query parameters:**
+- `async`: true/false (default: true) - Kör träning asynkront eller synkront
+
+**Response (vid tillräckligt med data):**
+```json
+{
+  "success": true,
+  "message": "Träning startad",
+  "async": true,
+  "training_examples": 10
+}
+```
+
+**Response (vid otillräckligt med data):**
+```json
+{
+  "success": false,
+  "error": "Otillräckligt med träningsdata",
+  "details": {
+    "total_examples": 3,
+    "category_counts": {"mat": 2, "transport": 1},
+    "min_required": 2
+  }
+}
+```
+
+**Krav för träning:**
+- Minst 2 kategorier
+- Minst 2 exempel per kategori (konfigurerbart via `category_schema.yaml`)
+
+#### GET /api/model/status
+Hämtar status för AI-modellen och träning.
+
+```bash
+curl http://localhost:5000/api/model/status
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "status": {
+    "model_trained": true,
+    "training_in_progress": false,
+    "can_train": true,
+    "category_counts": {
+      "mat": 5,
+      "transport": 3,
+      "boende": 2
+    },
+    "total_examples": 10,
+    "min_examples_required": 2,
+    "last_trained": "2025-10-21T10:30:00",
+    "model_version": "1.0.0"
+  }
+}
+```
+
+### Konfiguration
+
+API:t använder `category_schema.yaml` i projektets rotkatalog för att lagra:
+- Kategoridefinitioner med keywords
+- Träningsexempel
+- Modellmetadata
+- Persistenta inställningar
+
+**Viktiga inställningar i `category_schema.yaml`:**
+
+```yaml
+persisted_settings:
+  training:
+    min_examples_per_category: 2  # Minsta antal exempel per kategori
+    auto_train_enabled: true      # Automatisk träning vid tillräckligt med data
+    auto_train_threshold: 2       # Minsta totalt antal exempel
+```
+
+### Integration med Dashboard
+
+API:t är designat för att integreras med Dash-dashboard:
+
+1. **Granska transaktioner:** Använd `GET /api/accounts/{accountId}/transactions` för att lista transaktioner
+2. **Välj kategori:** Användaren väljer kategori från dropdown i UI
+3. **"Lär AI":** Klicka på knapp som anropar `POST /api/transactions/{transactionId}/label`
+4. **Förhandsgranska:** Använd `POST /api/preview` för att visa hur AI skulle kategorisera nya transaktioner
+5. **Autoträning:** När minst 2 exempel per kategori finns, anropas `POST /api/train` automatiskt
+
 🤝 Bidra
 Alla moduler är dokumenterade och testade. Se config/test_plan.yaml för att förstå testflödet. Nya contributors kan börja med att läsa project_structure.yaml och settings_panel.yaml.
 

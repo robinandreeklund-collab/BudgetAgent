@@ -54,7 +54,7 @@ def parse_query(query: str) -> Dict[str, Any]:
     params = {}
     
     # Identifiera intent baserat på nyckelord
-    if any(word in query_lower for word in ["faktura", "räkning", "bill"]):
+    if any(word in query_lower for word in ["faktura", "räkning", "bill", "fakturor"]):
         intent = QueryIntent.SHOW_BILLS
         # Extrahera månad om specificerad
         month = extract_month(query_lower)

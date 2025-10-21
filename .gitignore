@@ -39,3 +39,8 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Demo and temporary files
+demo_*.py
+test_*.pdf
+test_*.yaml

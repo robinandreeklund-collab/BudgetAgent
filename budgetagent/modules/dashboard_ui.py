@@ -392,63 +392,86 @@ def settings_panel() -> html.Div:
     Returns:
         Dash layout-objekt med inställningar
     """
-    return html.Div([
-        html.H2("Inställningar"),
+    from . import settings_panel as sp
+    from pathlib import Path
+    
+    # Ladda inställningar från YAML
+    config_path = Path(__file__).parent.parent / "config" / "settings_panel.yaml"
+    
+    try:
+        settings = sp.load_settings(str(config_path))
+        current_values = sp.get_current_values(str(config_path))
         
-        html.H3("Import"),
-        dcc.Dropdown(
-            id='import-format',
-            options=[
-                {'label': 'Nordea CSV', 'value': 'nordea'},
-                {'label': 'Swedbank CSV', 'value': 'swedbank'},
-                {'label': 'SEB Excel', 'value': 'seb'},
-                {'label': 'Revolut JSON', 'value': 'revolut'}
-            ],
-            placeholder='Välj importformat'
-        ),
+        # Generera kontroller dynamiskt
+        components = [html.H2("Inställningar")]
+        components.extend(sp.render_controls(settings))
         
-        html.H3("Prognos"),
-        html.Label("Prognosfönster (månader):"),
-        dcc.Slider(
-            id='forecast-window',
-            min=1,
-            max=12,
-            value=1,
-            marks={i: str(i) for i in range(1, 13)}
-        ),
+        # Lägg till spara-knapp och feedback
+        components.append(html.Button('Spara inställningar', id='save-settings-button', n_clicks=0, style={'marginTop': '20px'}))
+        components.append(html.Div(id='settings-feedback', style={'marginTop': '10px'}))
         
-        html.H3("Fördelningsregel"),
-        dcc.Dropdown(
-            id='split-rule',
-            options=[
-                {'label': 'Lika fördelning', 'value': 'equal_split'},
-                {'label': 'Inkomstbaserad', 'value': 'income_weighted'},
-                {'label': 'Anpassad andel', 'value': 'custom_ratio'},
-                {'label': 'Behovsbaserad', 'value': 'needs_based'}
-            ],
-            value='equal_split'
-        ),
+        return html.Div(components, style={'padding': '20px'})
         
-        html.H3("Varningströsklar"),
-        html.Label("Varningsnivå (%):"),
-        dcc.Slider(
-            id='alert-threshold',
-            min=0,
-            max=100,
-            value=80,
-            marks={i: f'{i}%' for i in range(0, 101, 20)}
-        ),
-        
-        html.H3("Debug"),
-        dcc.Checklist(
-            id='show-debug',
-            options=[{'label': 'Visa debug-panel', 'value': 'debug'}],
-            value=['debug']
-        ),
-        
-        html.Button('Spara inställningar', id='save-settings-button', n_clicks=0),
-        html.Div(id='settings-feedback')
-    ], style={'padding': '20px'})
+    except Exception as e:
+        # Fallback till statisk layout om YAML inte kan läsas
+        print(f"Kunde inte ladda inställningar: {e}")
+        return html.Div([
+            html.H2("Inställningar"),
+            
+            html.H3("Import"),
+            dcc.Dropdown(
+                id='settings-import_format',
+                options=[
+                    {'label': 'Nordea CSV', 'value': 'nordea'},
+                    {'label': 'Swedbank CSV', 'value': 'swedbank'},
+                    {'label': 'SEB Excel', 'value': 'seb'},
+                    {'label': 'Revolut JSON', 'value': 'revolut'}
+                ],
+                placeholder='Välj importformat'
+            ),
+            
+            html.H3("Prognos"),
+            html.Label("Prognosfönster (månader):"),
+            dcc.Slider(
+                id='settings-forecast_window',
+                min=1,
+                max=12,
+                value=1,
+                marks={i: str(i) for i in range(1, 13)}
+            ),
+            
+            html.H3("Fördelningsregel"),
+            dcc.Dropdown(
+                id='settings-split_rule',
+                options=[
+                    {'label': 'Lika fördelning', 'value': 'equal_split'},
+                    {'label': 'Inkomstbaserad', 'value': 'income_weighted'},
+                    {'label': 'Anpassad andel', 'value': 'custom_ratio'},
+                    {'label': 'Behovsbaserad', 'value': 'needs_based'}
+                ],
+                value='equal_split'
+            ),
+            
+            html.H3("Varningströsklar"),
+            html.Label("Varningsnivå (%):"),
+            dcc.Slider(
+                id='settings-alert_threshold',
+                min=0,
+                max=100,
+                value=80,
+                marks={i: f'{i}%' for i in range(0, 101, 20)}
+            ),
+            
+            html.H3("Debug"),
+            dcc.Checklist(
+                id='settings-show_debug_panel',
+                options=[{'label': 'Visa debug-panel', 'value': 'enabled'}],
+                value=['enabled']
+            ),
+            
+            html.Button('Spara inställningar', id='save-settings-button', n_clicks=0),
+            html.Div(id='settings-feedback')
+        ], style={'padding': '20px'})
 
 
 def create_categorization_review_panel(transactions: List[Transaction], filename: str) -> html.Div:
@@ -993,17 +1016,38 @@ def render_dashboard() -> None:
         [Output('settings-feedback', 'children'),
          Output('forecast-graph', 'figure', allow_duplicate=True)],
         Input('save-settings-button', 'n_clicks'),
-        [State('forecast-window', 'value'),
-         State('split-rule', 'value'),
-         State('alert-threshold', 'value')],
+        [State('settings-forecast_window', 'value'),
+         State('settings-split_rule', 'value'),
+         State('settings-alert_threshold', 'value'),
+         State('settings-import_format', 'value'),
+         State('settings-show_debug_panel', 'value')],
         prevent_initial_call=True
     )
-    def save_settings_callback(n_clicks, forecast_window, split_rule, alert_threshold):
+    def save_settings_callback(n_clicks, forecast_window, split_rule, alert_threshold, import_format, show_debug):
         """Sparar inställningar och uppdaterar prognosen."""
         if n_clicks:
             try:
-                # Här skulle vi spara inställningarna till YAML-fil
-                # För nu uppdaterar vi bara prognosen med det nya värdet
+                from . import settings_panel as sp
+                from pathlib import Path
+                
+                # Sökväg till inställningsfil
+                config_path = Path(__file__).parent.parent / "config" / "settings_panel.yaml"
+                
+                # Förbered nya värden
+                new_values = {}
+                if forecast_window is not None:
+                    new_values['forecast_window'] = forecast_window
+                if split_rule is not None:
+                    new_values['split_rule'] = split_rule
+                if alert_threshold is not None:
+                    new_values['alert_threshold'] = alert_threshold
+                if import_format is not None:
+                    new_values['import_format'] = import_format
+                if show_debug is not None:
+                    new_values['show_debug_panel'] = 'enabled' in show_debug
+                
+                # Spara inställningar till YAML
+                sp.update_settings(str(config_path), new_values)
                 
                 # Uppdatera prognosen med nytt fönster
                 forecast_data = forecast_engine.simulate_monthly_balance(forecast_window or 6)

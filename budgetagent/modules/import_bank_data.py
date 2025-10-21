@@ -254,15 +254,21 @@ def extract_balance_info(raw_data: pd.DataFrame, bank_format: str) -> Optional[t
         # Format 1: Traditionellt med Saldo-kolumn för saldovärden
         # Format 2: Där "Saldo" = valuta och "Rubrik" = saldo-belopp
         
-        # Först, försök hitta datum
+        # Först, försök hitta datum - använd senaste (max) datum
         if 'Bokföringsdatum' in raw_data.columns:
             date_col = raw_data['Bokföringsdatum'].dropna()
             if not date_col.empty:
-                balance_date = pd.to_datetime(date_col.iloc[-1]).date()
+                # Konvertera alla datum och hitta det senaste
+                dates = pd.to_datetime(date_col, errors='coerce').dropna()
+                if not dates.empty:
+                    balance_date = dates.max().date()
         elif 'Bokföringsdag' in raw_data.columns:
             date_col = raw_data['Bokföringsdag'].dropna()
             if not date_col.empty:
-                balance_date = pd.to_datetime(date_col.iloc[-1]).date()
+                # Konvertera alla datum och hitta det senaste
+                dates = pd.to_datetime(date_col, errors='coerce').dropna()
+                if not dates.empty:
+                    balance_date = dates.max().date()
         
         # Försök extrahera saldo
         # Fall 1: Saldo är valuta och Rubrik är saldo-beloppet
@@ -339,7 +345,10 @@ def extract_balance_info(raw_data: pd.DataFrame, bank_format: str) -> Optional[t
         if 'Bokföringsdatum' in raw_data.columns:
             date_col = raw_data['Bokföringsdatum'].dropna()
             if not date_col.empty:
-                balance_date = pd.to_datetime(date_col.iloc[-1]).date()
+                # Konvertera alla datum och hitta det senaste
+                dates = pd.to_datetime(date_col, errors='coerce').dropna()
+                if not dates.empty:
+                    balance_date = dates.max().date()
         
         if 'Valuta' in raw_data.columns and not raw_data['Valuta'].isna().all():
             currency = raw_data['Valuta'].dropna().iloc[0]

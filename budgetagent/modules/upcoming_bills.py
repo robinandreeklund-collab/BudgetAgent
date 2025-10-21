@@ -62,8 +62,15 @@ def add_bill(bill: Bill) -> None:
     if bill.payment_date:
         bill_dict['payment_date'] = bill.payment_date.isoformat()
     
-    # Lägg till fakturan
-    data['upcoming_bills']['bills'].append(bill_dict)
+    # Lägg till fakturan om den inte redan finns (baserat på name, amount, due_date)
+    duplicate = any(
+        b.get('name') == bill_dict['name'] and
+        float(b.get('amount', 0)) == bill_dict['amount'] and
+        b.get('due_date') == bill_dict['due_date']
+        for b in data['upcoming_bills']['bills']
+    )
+    if not duplicate:
+        data['upcoming_bills']['bills'].append(bill_dict)
     
     # Spara tillbaka
     config_path.parent.mkdir(parents=True, exist_ok=True)

@@ -88,11 +88,11 @@ def extract_bills_from_text(raw_text: str, default_category: str = "Boende") -> 
     # Mönster för att identifiera belopp (SEK, kr, kronor)
     # Matchar: 1 234,56, 1234.56, 1234,56 kr, etc.
     amount_patterns = [
-        r'(?:SEK|kr|kronor)?\s*(\d[\d\s]*[,\.]?\d{0,2})\s*(?:SEK|kr|kronor)?',
-        r'Belopp:?\s*(\d[\d\s]*[,\.]?\d{0,2})',
-        r'Att betala:?\s*(\d[\d\s]*[,\.]?\d{0,2})',
-        r'Totalt:?\s*(\d[\d\s]*[,\.]?\d{0,2})',
-        r'Summa:?\s*(\d[\d\s]*[,\.]?\d{0,2})'
+        r'(?:SEK|kr|kronor)?\s*(\d{2,}[\d\s]*[,\.]?\d{0,2})\s*(?:SEK|kr|kronor)?',
+        r'Belopp:?\s*(\d{2,}[\d\s]*[,\.]?\d{0,2})',
+        r'Att betala:?\s*(\d{2,}[\d\s]*[,\.]?\d{0,2})',
+        r'Totalt:?\s*(\d{2,}[\d\s]*[,\.]?\d{0,2})',
+        r'Summa:?\s*(\d{2,}[\d\s]*[,\.]?\d{0,2})'
     ]
     
     # Mönster för datum (YYYY-MM-DD, DD-MM-YYYY, DD/MM/YYYY, etc.)

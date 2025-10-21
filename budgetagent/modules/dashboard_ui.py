@@ -198,6 +198,9 @@ def input_panel() -> html.Div:
         ),
         html.Div(id='upload-feedback', style={'marginBottom': '20px'}),
         
+        # Store för att bevara transaktioner för granskning
+        dcc.Store(id='temp-transactions-store', storage_type='memory'),
+        
         # Kategoriserings- och granskningspanel
         html.Div(id='categorization-review-panel', style={'marginBottom': '20px'}),
         
@@ -588,6 +591,7 @@ def render_dashboard() -> None:
     @app.callback(
         [Output('upload-feedback', 'children'),
          Output('categorization-review-panel', 'children'),
+         Output('temp-transactions-store', 'data'),
          Output('data-update-trigger', 'data')],
         Input('upload-nordea-csv', 'contents'),
         State('upload-nordea-csv', 'filename'),
@@ -597,7 +601,7 @@ def render_dashboard() -> None:
     def handle_csv_upload(contents, filename, current_trigger):
         """Hanterar uppladdning av Nordea CSV-fil med kategorisering."""
         if contents is None:
-            return html.Div(), html.Div(), current_trigger
+            return html.Div(), html.Div(), None, current_trigger
         
         try:
             from . import categorize_expenses, account_manager
@@ -622,6 +626,7 @@ def render_dashboard() -> None:
                         html.Span(f'Inga transaktioner hittades i {filename} (kan redan vara importerad)')
                     ], style={'color': 'orange', 'padding': '10px', 'backgroundColor': '#fff3cd', 'borderRadius': '5px'}),
                     html.Div(),
+                    None,
                     current_trigger
                 )
             
@@ -633,9 +638,20 @@ def render_dashboard() -> None:
             # Kategorisera transaktioner
             categorized_transactions = categorize_expenses.categorize_transactions(transactions, rules)
             
-            # Spara i temporär store för granskning
-            temp_transactions_store['transactions'] = categorized_transactions
-            temp_transactions_store['filename'] = filename
+            # Skapa store-data för granskning (serialisera till JSON-kompatibelt format)
+            store_data = {
+                'transactions': [
+                    {
+                        'date': str(t.date),
+                        'description': t.description,
+                        'amount': float(t.amount),
+                        'category': t.category,
+                        'metadata': t.metadata
+                    }
+                    for t in categorized_transactions
+                ],
+                'filename': filename
+            }
             
             # Räkna kategorier och confidence
             total_trans = len(categorized_transactions)
@@ -669,7 +685,7 @@ def render_dashboard() -> None:
                           style={'fontStyle': 'italic'})
             ], style={'color': '#155724', 'padding': '10px', 'backgroundColor': '#d4edda', 'borderRadius': '5px'})
             
-            return feedback, review_panel, current_trigger
+            return feedback, review_panel, store_data, current_trigger
             
         except FileNotFoundError as e:
             return (
@@ -678,6 +694,7 @@ def render_dashboard() -> None:
                     html.Span(f'Fil hittades inte: {str(e)}')
                 ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'}),
                 html.Div(),
+                None,
                 current_trigger
             )
         except ValueError as e:
@@ -687,6 +704,7 @@ def render_dashboard() -> None:
                     html.Span(f'Felaktigt filformat: {str(e)}')
                 ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'}),
                 html.Div(),
+                None,
                 current_trigger
             )
         except Exception as e:
@@ -699,6 +717,7 @@ def render_dashboard() -> None:
                     html.Small(traceback.format_exc(), style={'fontSize': '10px', 'color': '#666'})
                 ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'}),
                 html.Div(),
+                None,
                 current_trigger
             )
     
@@ -907,18 +926,33 @@ def render_dashboard() -> None:
     @app.callback(
         [Output('confirm-import-feedback', 'children'),
          Output('data-update-trigger', 'data', allow_duplicate=True),
-         Output('categorization-review-panel', 'children', allow_duplicate=True)],
+         Output('categorization-review-panel', 'children', allow_duplicate=True),
+         Output('temp-transactions-store', 'data', allow_duplicate=True)],
         Input('confirm-import-button', 'n_clicks'),
-        State({'type': 'category-store', 'index': ALL}, 'data'),
+        [State({'type': 'category-store', 'index': ALL}, 'data'),
+         State('temp-transactions-store', 'data')],
         prevent_initial_call=True
     )
-    def confirm_and_save_transactions(n_clicks, category_values):
+    def confirm_and_save_transactions(n_clicks, category_values, store_data):
         """Sparar transaktioner med uppdaterade kategorier."""
-        if not n_clicks or not temp_transactions_store['transactions']:
-            return html.Div(), 0, html.Div()
+        if not n_clicks or not store_data or not store_data.get('transactions'):
+            return html.Div(), 0, html.Div(), None
         
         try:
-            transactions = temp_transactions_store['transactions']
+            # Reconstruct transactions from store
+            from . import parse_transactions
+            from datetime import date as dt_date
+            
+            transactions = []
+            for trans_data in store_data['transactions']:
+                trans = Transaction(
+                    date=dt_date.fromisoformat(trans_data['date']),
+                    description=trans_data['description'],
+                    amount=Decimal(str(trans_data['amount'])),
+                    category=trans_data['category'],
+                    metadata=trans_data['metadata']
+                )
+                transactions.append(trans)
             
             # Uppdatera kategorier baserat på användarens val från stores
             for idx, trans in enumerate(transactions):
@@ -930,9 +964,7 @@ def render_dashboard() -> None:
             
             # Rensa temporär store
             saved_count = len(transactions)
-            filename = temp_transactions_store['filename']
-            temp_transactions_store['transactions'] = []
-            temp_transactions_store['filename'] = ''
+            filename = store_data.get('filename', 'filen')
             
             feedback = html.Div([
                 html.Span('✅ ', style={'fontSize': '24px'}),
@@ -949,7 +981,7 @@ def render_dashboard() -> None:
                 'border': '2px solid #28a745'
             })
             
-            return feedback, 1, html.Div()  # Trigger uppdatering och rensa review panel
+            return feedback, 1, html.Div(), None  # Trigger uppdatering, rensa review panel och store
             
         except Exception as e:
             return (
@@ -958,7 +990,8 @@ def render_dashboard() -> None:
                     html.Span(f'Fel vid sparande: {str(e)}')
                 ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'}),
                 0,
-                html.Div()
+                html.Div(),
+                None
             )
     
     # Callback för att uppdatera kontoöversikt

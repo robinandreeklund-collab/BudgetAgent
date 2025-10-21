@@ -1,1 +1,21 @@
-# Example Bank Data
+Datum,Belopp,Beskrivning,Valuta
+2025-01-15,-350.50,"ICA Maxi Linköping",SEK
+2025-01-16,-120.00,"Circle K Bensin",SEK
+2025-01-18,-89.00,"Hemköp",SEK
+2025-01-20,-450.00,"Elgiganten",SEK
+2025-01-22,-75.50,"Max Hamburgare",SEK
+2025-01-25,28000.00,"Lön Robin",SEK
+2025-01-26,-6000.00,"Hyra",SEK
+2025-01-27,-200.00,"Spotify Premium",SEK
+2025-01-28,-150.00,"Netflix",SEK
+2025-01-30,-300.00,"Willys",SEK
+2025-02-01,-900.00,"Elräkning",SEK
+2025-02-05,-420.00,"ICA Kvantum",SEK
+2025-02-08,-180.00,"Bensin Shell",SEK
+2025-02-10,-250.00,"Apoteket",SEK
+2025-02-12,-1200.00,"Tandläkare",SEK
+2025-02-15,-95.00,"Hemköp",SEK
+2025-02-20,-380.00,"ICA Maxi",SEK
+2025-02-25,28000.00,"Lön Robin",SEK
+2025-02-26,-6000.00,"Hyra",SEK
+2025-02-27,-500.00,"HBO Max",SEK

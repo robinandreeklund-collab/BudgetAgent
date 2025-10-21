@@ -140,7 +140,7 @@ def extract_bills_from_text(raw_text: str, default_category: str = "Boende") -> 
                 try:
                     due_date = datetime.strptime(date_str, fmt).date()
                     break
-                except:
+                except ValueError:
                     continue
             if due_date:
                 break

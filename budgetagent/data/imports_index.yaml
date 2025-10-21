@@ -1,14 +1,24 @@
-# Index över importerade filer för dupliceringsskydd
-# Denna fil uppdateras automatiskt vid varje import
-# Format: lista över importerade filer med metadata
-
-imports: []
-# Exempel på struktur:
-# - filename: "PERSONKONTO 1709 20 72840 - 2025-10-21 09.39.41.csv"
-#   checksum: "abc123def456..."
-#   account: "PERSONKONTO 1709 20 72840"
-#   import_date: "2025-10-21T09:39:41"
-#   transaction_count: 25
-#   transaction_hashes:
-#     - "hash1..."
-#     - "hash2..."
+imports:
+- account: test_nordea_dup
+  checksum: 3acefd0de97a5057a56e8bb703d82198
+  filename: test_nordea_dup.csv
+  import_date: '2025-10-21T20:43:22.774985'
+  transaction_count: 2
+  transaction_hashes:
+  - fd8a93549bf78d8f3767bbcc8e9c366b24be97e925d81e2d33dad5fc7ddca0c3
+  - 9918f00ba5061bf9ab3656f88c8687221ac76e00b9ed5183259be6de086aa59b
+- account: PERSONKONTO 1234
+  checksum: 3acefd0de97a5057a56e8bb703d82198
+  filename: PERSONKONTO 1234 - 2025-01-15.csv
+  import_date: '2025-10-21T20:43:22.785804'
+  transaction_count: 2
+  transaction_hashes:
+  - fd8a93549bf78d8f3767bbcc8e9c366b24be97e925d81e2d33dad5fc7ddca0c3
+  - 9918f00ba5061bf9ab3656f88c8687221ac76e00b9ed5183259be6de086aa59b
+- account: PERSONKONTO 1234
+  checksum: 38b56828f4a8d954584dcba98d94b2d6
+  filename: PERSONKONTO 1234 - 2025-01-17.csv
+  import_date: '2025-10-21T20:43:22.799296'
+  transaction_count: 1
+  transaction_hashes:
+  - e88e22b823ff84430f545f216aed065e637321ed74f95484c70b17df1e3a05a4

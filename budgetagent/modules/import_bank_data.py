@@ -14,6 +14,7 @@ Exempel på YAML-konfiguration (settings_panel.yaml):
 
 import pandas as pd
 from typing import Optional, List
+from pathlib import Path
 from .models import Transaction
 
 
@@ -27,8 +28,6 @@ def load_file(path: str) -> pd.DataFrame:
     Returns:
         DataFrame med rådata från filen
     """
-    from pathlib import Path
-    
     file_path = Path(path)
     
     if not file_path.exists():

@@ -14,3 +14,10 @@ yamllint>=1.26.0
 
 # Additional dependencies
 python-dateutil>=2.8.0
+
+# PDF parsing dependencies
+pdfplumber>=0.10.0
+
+# Optional OCR dependencies (install separately if needed)
+# pytesseract>=0.3.10
+# pdf2image>=1.16.0

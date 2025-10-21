@@ -399,13 +399,14 @@ def render_dashboard() -> None:
         """Lägger till en ny inkomst."""
         if n_clicks and person and source and amount and date:
             try:
+                is_recurring = 'recurring' in (recurring or [])
                 income = Income(
                     person=person,
                     source=source,
                     amount=Decimal(str(amount)),
                     date=datetime.fromisoformat(date).date(),
-                    recurring='recurring' in (recurring or []),
-                    frequency='monthly' if 'recurring' in (recurring or []) else None
+                    recurring=is_recurring,
+                    frequency='monthly' if is_recurring else None
                 )
                 income_tracker.add_income(income)
                 return html.Div(f"✅ Inkomst för '{person}' tillagd!", style={'color': 'green'})

@@ -108,6 +108,11 @@ def create_app_layout() -> html.Div:
                     accounts_panel()
                 ])
             ]),
+            dcc.Tab(label='Fakturor', children=[
+                html.Div([
+                    bills_panel()
+                ])
+            ]),
             dcc.Tab(label='Agentfrågor', children=[
                 html.Div([
                     agent_query_interface()
@@ -254,6 +259,70 @@ def input_panel() -> html.Div:
         
         # Feedback
         html.Div(id='input-feedback')
+    ], style={'padding': '20px'})
+
+
+def bills_panel() -> html.Div:
+    """
+    Skapar fakturapanelen som visar alla inlagda fakturor.
+    
+    Returns:
+        Dash layout-objekt med fakturaöversikt
+    """
+    return html.Div([
+        html.H2("Fakturahantering"),
+        html.P("Här kan du se, redigera och ta bort alla dina inlagda fakturor."),
+        html.Div([
+            html.Button('Uppdatera fakturaöversikt', id='refresh-bills-button', n_clicks=0, 
+                       style={'marginRight': '10px', 'marginBottom': '20px'}),
+        ]),
+        html.Div(id='bill-action-feedback', style={'marginBottom': '20px'}),
+        html.Div(id='bills-container'),
+        
+        # Dialog för att redigera faktura
+        html.Div(id='edit-bill-dialog', style={'display': 'none'}, children=[
+            html.Div([
+                html.H3("Redigera faktura"),
+                html.Label("Namn:"),
+                dcc.Input(id='edit-bill-name', type='text', style={'width': '100%', 'marginBottom': '10px'}),
+                html.Label("Belopp:"),
+                dcc.Input(id='edit-bill-amount', type='number', style={'width': '100%', 'marginBottom': '10px'}),
+                html.Label("Förfallodag:"),
+                dcc.DatePickerSingle(id='edit-bill-due-date', style={'marginBottom': '10px'}),
+                html.Label("Kategori:"),
+                dcc.Dropdown(
+                    id='edit-bill-category',
+                    options=[
+                        {'label': 'Boende', 'value': 'Boende'},
+                        {'label': 'Mat', 'value': 'Mat'},
+                        {'label': 'Transport', 'value': 'Transport'},
+                        {'label': 'Försäkring', 'value': 'Försäkring'},
+                        {'label': 'Nöje', 'value': 'Nöje'}
+                    ],
+                    style={'marginBottom': '10px'}
+                ),
+                html.Label("Konto:"),
+                dcc.Dropdown(
+                    id='edit-bill-account',
+                    options=[],
+                    style={'marginBottom': '10px'}
+                ),
+                dcc.Store(id='edit-bill-original-data'),
+                html.Button('Spara ändringar', id='save-bill-edit-button', n_clicks=0, 
+                           style={'marginRight': '10px', 'backgroundColor': '#28a745', 'color': 'white', 
+                                  'border': 'none', 'padding': '8px 16px', 'borderRadius': '5px', 'cursor': 'pointer'}),
+                html.Button('Avbryt', id='cancel-bill-edit-button', n_clicks=0,
+                           style={'backgroundColor': '#6c757d', 'color': 'white', 
+                                  'border': 'none', 'padding': '8px 16px', 'borderRadius': '5px', 'cursor': 'pointer'})
+            ], style={
+                'border': '2px solid #007bff',
+                'borderRadius': '10px',
+                'padding': '20px',
+                'backgroundColor': '#f8f9fa',
+                'maxWidth': '500px',
+                'margin': '20px auto'
+            })
+        ])
     ], style={'padding': '20px'})
 
 
@@ -1342,13 +1411,15 @@ def render_dashboard() -> None:
     # Callback för att uppdatera konto-dropdowns i faktura- och inkomstformulär
     @app.callback(
         [Output('bill-account', 'options'),
-         Output('income-account', 'options')],
+         Output('income-account', 'options'),
+         Output('edit-bill-account', 'options')],
         [Input('refresh-accounts-button', 'n_clicks'),
          Input('data-update-trigger', 'data'),
          Input('bill-account', 'id'),  # Trigger on page load
-         Input('income-account', 'id')]  # Trigger on page load
+         Input('income-account', 'id'),  # Trigger on page load
+         Input('edit-bill-account', 'id')]  # Trigger on page load
     )
-    def update_account_dropdowns(refresh_clicks, trigger, bill_id, income_id):
+    def update_account_dropdowns(refresh_clicks, trigger, bill_id, income_id, edit_bill_id):
         """Uppdaterar konto-dropdowns med aktuella konton."""
         try:
             from . import account_manager
@@ -1356,7 +1427,7 @@ def render_dashboard() -> None:
             accounts = account_manager.load_accounts()
             
             if not accounts:
-                return [], []
+                return [], [], []
             
             # Skapa options-lista från konton
             account_options = [
@@ -1364,11 +1435,276 @@ def render_dashboard() -> None:
                 for account_name in sorted(accounts.keys())
             ]
             
-            return account_options, account_options
+            return account_options, account_options, account_options
             
         except Exception as e:
             print(f"Fel vid hämtning av konton för dropdowns: {e}")
-            return [], []
+            return [], [], []
+    
+    # Callback för att uppdatera fakturaöversikt
+    @app.callback(
+        Output('bills-container', 'children'),
+        [Input('refresh-bills-button', 'n_clicks'),
+         Input('bills-container', 'id'),  # Trigger on page load
+         Input('data-update-trigger', 'data')]
+    )
+    def update_bills_display(n_clicks, _, trigger):
+        """Uppdaterar visningen av alla fakturor."""
+        try:
+            bills = upcoming_bills.get_all_bills()
+            
+            if not bills:
+                return html.Div([
+                    html.P('Inga fakturor registrerade än. Lägg till fakturor under fliken "Inmatning".',
+                          style={'fontStyle': 'italic', 'color': '#666'})
+                ])
+            
+            # Sortera efter förfallodatum
+            bills.sort(key=lambda b: b.due_date)
+            
+            # Skapa kort för varje faktura
+            bill_cards = []
+            for bill in bills:
+                status_color = '#28a745' if bill.paid else '#dc3545'
+                status_text = 'Betald' if bill.paid else 'Obetald'
+                recurring_text = f" ({bill.frequency})" if bill.recurring else ""
+                
+                card = html.Div([
+                    html.Div([
+                        html.H4(bill.name, style={'marginBottom': '10px', 'color': '#007bff', 'display': 'inline-block'}),
+                        html.Span(status_text, style={
+                            'marginLeft': '10px',
+                            'padding': '4px 8px',
+                            'backgroundColor': status_color,
+                            'color': 'white',
+                            'borderRadius': '4px',
+                            'fontSize': '12px',
+                            'fontWeight': 'bold'
+                        })
+                    ]),
+                    html.P([
+                        html.Strong('Belopp: '),
+                        html.Span(f'{bill.amount:,.2f} SEK', style={'fontSize': '18px', 'fontWeight': 'bold', 'color': '#dc3545'})
+                    ]),
+                    html.P([
+                        html.Strong('Förfallodatum: '),
+                        html.Span(str(bill.due_date))
+                    ]),
+                    html.P([
+                        html.Strong('Kategori: '),
+                        html.Span(bill.category)
+                    ]),
+                    html.P([
+                        html.Strong('Konto: '),
+                        html.Span(bill.account if bill.account else 'Ej angivet', 
+                                 style={'color': '#666' if not bill.account else 'inherit'})
+                    ]),
+                    html.P([
+                        html.Strong('Återkommande: '),
+                        html.Span(f'Ja{recurring_text}' if bill.recurring else 'Nej')
+                    ]),
+                    html.Div([
+                        html.Button('Redigera', 
+                                   id={'type': 'edit-bill', 'name': bill.name, 'due_date': str(bill.due_date)},
+                                   n_clicks=0,
+                                   style={
+                                       'marginRight': '10px',
+                                       'backgroundColor': '#007bff',
+                                       'color': 'white',
+                                       'border': 'none',
+                                       'padding': '6px 12px',
+                                       'borderRadius': '5px',
+                                       'cursor': 'pointer'
+                                   }),
+                        html.Button('Ta bort', 
+                                   id={'type': 'delete-bill', 'name': bill.name, 'due_date': str(bill.due_date)},
+                                   n_clicks=0,
+                                   style={
+                                       'backgroundColor': '#dc3545',
+                                       'color': 'white',
+                                       'border': 'none',
+                                       'padding': '6px 12px',
+                                       'borderRadius': '5px',
+                                       'cursor': 'pointer'
+                                   })
+                    ], style={'marginTop': '10px'})
+                ], style={
+                    'border': '1px solid #dee2e6',
+                    'borderRadius': '10px',
+                    'padding': '20px',
+                    'marginBottom': '15px',
+                    'backgroundColor': '#fff',
+                    'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+                })
+                bill_cards.append(card)
+            
+            return html.Div([
+                html.P(f'Totalt {len(bills)} faktura(or) registrerade', 
+                      style={'fontWeight': 'bold', 'marginBottom': '20px'}),
+                *bill_cards
+            ])
+            
+        except Exception as e:
+            return html.Div(f'Fel vid hämtning av fakturor: {str(e)}', style={'color': 'red'})
+    
+    # Callback för att ta bort en faktura
+    @app.callback(
+        [Output('bill-action-feedback', 'children'),
+         Output('bills-container', 'children', allow_duplicate=True)],
+        Input({'type': 'delete-bill', 'name': ALL, 'due_date': ALL}, 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def delete_bill_callback(n_clicks_list):
+        """Ta bort en faktura."""
+        from dash import ctx
+        
+        if not ctx.triggered or not any(n_clicks_list):
+            return html.Div(), update_bills_display(0, None, 0)
+        
+        button_data = ctx.triggered_id
+        
+        if not button_data:
+            return html.Div(), update_bills_display(0, None, 0)
+        
+        bill_name = button_data['name']
+        bill_due_date = button_data['due_date']
+        
+        # Ta bort fakturan
+        success = upcoming_bills.delete_bill(bill_name, bill_due_date)
+        
+        if success:
+            feedback = html.Div([
+                html.Span('✅ ', style={'fontSize': '20px'}),
+                html.Span(f'Faktura "{bill_name}" har tagits bort')
+            ], style={'color': 'green', 'padding': '10px', 'backgroundColor': '#d4edda', 'borderRadius': '5px'})
+        else:
+            feedback = html.Div([
+                html.Span('❌ ', style={'fontSize': '20px'}),
+                html.Span(f'Kunde inte ta bort faktura "{bill_name}"')
+            ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'})
+        
+        return feedback, update_bills_display(0, None, 0)
+    
+    # Callback för att öppna redigeringsdialog
+    @app.callback(
+        [Output('edit-bill-dialog', 'style'),
+         Output('edit-bill-name', 'value'),
+         Output('edit-bill-amount', 'value'),
+         Output('edit-bill-due-date', 'date'),
+         Output('edit-bill-category', 'value'),
+         Output('edit-bill-account', 'value'),
+         Output('edit-bill-original-data', 'data')],
+        [Input({'type': 'edit-bill', 'name': ALL, 'due_date': ALL}, 'n_clicks'),
+         Input('cancel-bill-edit-button', 'n_clicks')],
+        prevent_initial_call=True
+    )
+    def toggle_edit_dialog(edit_clicks, cancel_clicks):
+        """Öppnar eller stänger redigeringsdialogen."""
+        from dash import ctx
+        
+        if not ctx.triggered:
+            raise PreventUpdate
+        
+        triggered_id = ctx.triggered[0]['prop_id']
+        
+        # Om cancel-knappen trycktes, stäng dialogen
+        if 'cancel-bill-edit-button' in triggered_id:
+            return {'display': 'none'}, '', None, None, None, None, None
+        
+        # Om edit-knappen trycktes, öppna dialogen
+        if not any(edit_clicks):
+            raise PreventUpdate
+        
+        button_data = ctx.triggered_id
+        
+        if not button_data:
+            raise PreventUpdate
+        
+        bill_name = button_data['name']
+        bill_due_date = button_data['due_date']
+        
+        # Hämta fakturan
+        bills = upcoming_bills.get_all_bills()
+        target_bill = None
+        for bill in bills:
+            if bill.name == bill_name and str(bill.due_date) == bill_due_date:
+                target_bill = bill
+                break
+        
+        if not target_bill:
+            return {'display': 'none'}, '', None, None, None, None, None
+        
+        # Returnera dialogstil och fakturadata
+        return (
+            {'display': 'block'},
+            target_bill.name,
+            float(target_bill.amount),
+            str(target_bill.due_date),
+            target_bill.category,
+            target_bill.account,
+            {'name': bill_name, 'due_date': bill_due_date}
+        )
+    
+    # Callback för att spara redigerad faktura
+    @app.callback(
+        [Output('bill-action-feedback', 'children', allow_duplicate=True),
+         Output('bills-container', 'children', allow_duplicate=True),
+         Output('edit-bill-dialog', 'style', allow_duplicate=True)],
+        Input('save-bill-edit-button', 'n_clicks'),
+        [State('edit-bill-name', 'value'),
+         State('edit-bill-amount', 'value'),
+         State('edit-bill-due-date', 'date'),
+         State('edit-bill-category', 'value'),
+         State('edit-bill-account', 'value'),
+         State('edit-bill-original-data', 'data')],
+        prevent_initial_call=True
+    )
+    def save_bill_edit(n_clicks, name, amount, due_date, category, account, original_data):
+        """Sparar ändringar i en faktura."""
+        if not n_clicks or not original_data:
+            raise PreventUpdate
+        
+        try:
+            from datetime import datetime
+            from decimal import Decimal
+            from .models import Bill
+            
+            # Skapa uppdaterad faktura
+            updated_bill = Bill(
+                name=name,
+                amount=Decimal(str(amount)),
+                due_date=datetime.fromisoformat(due_date).date(),
+                category=category,
+                account=account,
+                recurring=False
+            )
+            
+            # Uppdatera fakturan
+            success = upcoming_bills.update_bill(
+                original_data['name'],
+                original_data['due_date'],
+                updated_bill
+            )
+            
+            if success:
+                feedback = html.Div([
+                    html.Span('✅ ', style={'fontSize': '20px'}),
+                    html.Span(f'Faktura "{name}" har uppdaterats')
+                ], style={'color': 'green', 'padding': '10px', 'backgroundColor': '#d4edda', 'borderRadius': '5px'})
+            else:
+                feedback = html.Div([
+                    html.Span('❌ ', style={'fontSize': '20px'}),
+                    html.Span(f'Kunde inte uppdatera faktura "{name}"')
+                ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'})
+            
+            return feedback, update_bills_display(0, None, 0), {'display': 'none'}
+            
+        except Exception as e:
+            feedback = html.Div([
+                html.Span('❌ ', style={'fontSize': '20px'}),
+                html.Span(f'Fel vid uppdatering: {str(e)}')
+            ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'})
+            return feedback, update_bills_display(0, None, 0), {'display': 'none'}
     
     # Kör server
     app.run(debug=True, host='0.0.0.0', port=8050)

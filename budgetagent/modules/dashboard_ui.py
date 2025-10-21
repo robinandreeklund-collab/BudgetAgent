@@ -13,7 +13,7 @@ Exempel på YAML-konfiguration används från flera filer:
 
 import pandas as pd
 from typing import Optional, List, Dict
-from dash import Dash, html, dcc, Input, Output, State
+from dash import Dash, html, dcc, Input, Output, State, ALL
 import plotly.graph_objects as go
 import plotly.express as px
 from .models import Transaction, Bill, Income, ForecastData
@@ -253,8 +253,21 @@ def accounts_panel() -> html.Div:
     return html.Div([
         html.H2("Kontohantering"),
         html.P("Här visas alla registrerade bankkonton och deras import-historik."),
-        html.Button('Uppdatera kontoöversikt', id='refresh-accounts-button', n_clicks=0, 
-                   style={'marginBottom': '20px'}),
+        html.Div([
+            html.Button('Uppdatera kontoöversikt', id='refresh-accounts-button', n_clicks=0, 
+                       style={'marginRight': '10px', 'marginBottom': '20px'}),
+            html.Button('Rensa alla konton', id='clear-all-accounts-button', n_clicks=0,
+                       style={
+                           'marginBottom': '20px',
+                           'backgroundColor': '#dc3545',
+                           'color': 'white',
+                           'border': 'none',
+                           'padding': '8px 16px',
+                           'borderRadius': '5px',
+                           'cursor': 'pointer'
+                       }),
+        ]),
+        html.Div(id='account-action-feedback', style={'marginBottom': '20px'}),
         html.Div(id='accounts-container')
     ], style={'padding': '20px'})
 
@@ -563,7 +576,7 @@ def render_dashboard() -> None:
     import io
     from . import import_bank_data, parse_transactions
     
-    app = Dash(__name__)
+    app = Dash(__name__, suppress_callback_exceptions=True)
     app.layout = create_app_layout()
     
     # Store för att hålla temporära transaktioner för granskning
@@ -958,8 +971,45 @@ def render_dashboard() -> None:
             # Skapa kort för varje konto
             account_cards = []
             for account_name, account in accounts.items():
+                # Skapa lista med filer och delete-knappar
+                file_items = []
+                for idx, file in enumerate(account.imported_files[-10:]):  # Senaste 10
+                    file_items.append(
+                        html.Li([
+                            html.Span(f"{file.get('filename', 'Okänd fil')} - {file.get('import_date', 'Okänt datum')}"),
+                            html.Button('🗑️', 
+                                       id={'type': 'delete-file', 'account': account_name, 'filename': file.get('filename')},
+                                       n_clicks=0,
+                                       style={
+                                           'marginLeft': '10px',
+                                           'backgroundColor': '#dc3545',
+                                           'color': 'white',
+                                           'border': 'none',
+                                           'borderRadius': '3px',
+                                           'cursor': 'pointer',
+                                           'fontSize': '12px',
+                                           'padding': '2px 6px'
+                                       })
+                        ])
+                    )
+                
                 card = html.Div([
-                    html.H4(account_name, style={'marginBottom': '10px', 'color': '#007bff'}),
+                    html.Div([
+                        html.H4(account_name, style={'marginBottom': '10px', 'color': '#007bff', 'display': 'inline-block'}),
+                        html.Button('Ta bort konto', 
+                                   id={'type': 'delete-account', 'account': account_name},
+                                   n_clicks=0,
+                                   style={
+                                       'float': 'right',
+                                       'backgroundColor': '#dc3545',
+                                       'color': 'white',
+                                       'border': 'none',
+                                       'padding': '5px 10px',
+                                       'borderRadius': '5px',
+                                       'cursor': 'pointer',
+                                       'fontSize': '14px'
+                                   })
+                    ], style={'overflow': 'auto'}),
                     html.P([
                         html.Strong('Kontonummer: '),
                         html.Span(account.account_number or 'Ej angivet')
@@ -978,10 +1028,7 @@ def render_dashboard() -> None:
                     ]),
                     html.Details([
                         html.Summary('Visa importhistorik', style={'cursor': 'pointer', 'color': '#007bff'}),
-                        html.Ul([
-                            html.Li(f"{file.get('filename', 'Okänd fil')} - {file.get('import_date', 'Okänt datum')}")
-                            for file in account.imported_files[-10:]  # Visa senaste 10
-                        ])
+                        html.Ul(file_items) if file_items else html.P('Inga filer importerade än', style={'fontStyle': 'italic'})
                     ]) if account.imported_files else html.Div()
                 ], style={
                     'border': '1px solid #dee2e6',
@@ -1080,6 +1127,107 @@ def render_dashboard() -> None:
                 x=0.5, y=0.5, showarrow=False
             )
             return fig
+    
+    # Callback för att ta bort en fil från ett konto
+    @app.callback(
+        [Output('account-action-feedback', 'children'),
+         Output('accounts-container', 'children', allow_duplicate=True)],
+        Input({'type': 'delete-file', 'account': ALL, 'filename': ALL}, 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def delete_file_callback(n_clicks_list):
+        """Ta bort en importerad fil från ett konto."""
+        from . import account_manager
+        from dash import ctx
+        
+        if not ctx.triggered or not any(n_clicks_list):
+            return html.Div(), update_accounts_display(0, None)
+        
+        # Hitta vilken knapp som klickades
+        triggered_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        import json
+        button_data = json.loads(triggered_id)
+        
+        account_name = button_data['account']
+        filename = button_data['filename']
+        
+        # Ta bort filen
+        success = account_manager.delete_imported_file(account_name, filename)
+        
+        if success:
+            feedback = html.Div([
+                html.Span('✅ ', style={'fontSize': '20px'}),
+                html.Span(f'Fil "{filename}" borttagen från konto "{account_name}"')
+            ], style={'color': 'green', 'padding': '10px', 'backgroundColor': '#d4edda', 'borderRadius': '5px'})
+        else:
+            feedback = html.Div([
+                html.Span('❌ ', style={'fontSize': '20px'}),
+                html.Span(f'Kunde inte ta bort fil "{filename}"')
+            ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'})
+        
+        return feedback, update_accounts_display(0, None)
+    
+    # Callback för att ta bort ett helt konto
+    @app.callback(
+        [Output('account-action-feedback', 'children', allow_duplicate=True),
+         Output('accounts-container', 'children', allow_duplicate=True)],
+        Input({'type': 'delete-account', 'account': ALL}, 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def delete_account_callback(n_clicks_list):
+        """Ta bort ett helt konto."""
+        from . import account_manager
+        from dash import ctx
+        
+        if not ctx.triggered or not any(n_clicks_list):
+            return html.Div(), update_accounts_display(0, None)
+        
+        # Hitta vilken knapp som klickades
+        triggered_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        import json
+        button_data = json.loads(triggered_id)
+        
+        account_name = button_data['account']
+        
+        # Ta bort kontot
+        success = account_manager.delete_account(account_name)
+        
+        if success:
+            feedback = html.Div([
+                html.Span('✅ ', style={'fontSize': '20px'}),
+                html.Span(f'Konto "{account_name}" har tagits bort helt')
+            ], style={'color': 'green', 'padding': '10px', 'backgroundColor': '#d4edda', 'borderRadius': '5px'})
+        else:
+            feedback = html.Div([
+                html.Span('❌ ', style={'fontSize': '20px'}),
+                html.Span(f'Kunde inte ta bort konto "{account_name}"')
+            ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'})
+        
+        return feedback, update_accounts_display(0, None)
+    
+    # Callback för att rensa alla konton
+    @app.callback(
+        [Output('account-action-feedback', 'children', allow_duplicate=True),
+         Output('accounts-container', 'children', allow_duplicate=True)],
+        Input('clear-all-accounts-button', 'n_clicks'),
+        prevent_initial_call=True
+    )
+    def clear_all_accounts_callback(n_clicks):
+        """Rensa alla konton."""
+        from . import account_manager
+        
+        if not n_clicks:
+            return html.Div(), update_accounts_display(0, None)
+        
+        # Rensa alla konton
+        account_manager.clear_all_accounts()
+        
+        feedback = html.Div([
+            html.Span('✅ ', style={'fontSize': '20px'}),
+            html.Span('Alla konton har rensats')
+        ], style={'color': 'green', 'padding': '10px', 'backgroundColor': '#d4edda', 'borderRadius': '5px'})
+        
+        return feedback, update_accounts_display(0, None)
     
     # Kör server
     app.run(debug=True, host='0.0.0.0', port=8050)

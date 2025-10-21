@@ -390,3 +390,72 @@ def register_transactions(account_name: str, transactions: List[Transaction]) ->
     # Spara uppdaterat konto
     accounts[account_name] = account
     save_accounts(accounts)
+
+
+def delete_imported_file(account_name: str, filename: str) -> bool:
+    """
+    Tar bort en importerad fil från ett kontos historik.
+    
+    Detta tar endast bort filreferensen, inte de faktiska transaktionerna
+    som importerades från filen.
+    
+    Args:
+        account_name: Namn på kontot
+        filename: Filnamn att ta bort
+        
+    Returns:
+        True om filen togs bort, False om filen inte hittades
+    """
+    accounts = load_accounts()
+    
+    if account_name not in accounts:
+        return False
+    
+    account = accounts[account_name]
+    
+    # Hitta och ta bort filen
+    original_length = len(account.imported_files)
+    account.imported_files = [
+        f for f in account.imported_files 
+        if f.get('filename') != filename
+    ]
+    
+    if len(account.imported_files) < original_length:
+        accounts[account_name] = account
+        save_accounts(accounts)
+        return True
+    
+    return False
+
+
+def delete_account(account_name: str) -> bool:
+    """
+    Tar bort ett helt konto från systemet.
+    
+    VARNING: Detta tar bort all historik om importerade filer och
+    transaktions-hasher för kontot. Använd med försiktighet.
+    
+    Args:
+        account_name: Namn på kontot att ta bort
+        
+    Returns:
+        True om kontot togs bort, False om kontot inte hittades
+    """
+    accounts = load_accounts()
+    
+    if account_name in accounts:
+        del accounts[account_name]
+        save_accounts(accounts)
+        return True
+    
+    return False
+
+
+def clear_all_accounts() -> None:
+    """
+    Rensar alla konton från systemet.
+    
+    VARNING: Detta tar bort ALL kontohistorik. Använd endast för
+    test/demo-syften eller när du vill börja om från scratch.
+    """
+    save_accounts({})

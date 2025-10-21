@@ -356,3 +356,97 @@ class TestCalculateFileChecksum:
         checksum2 = account_manager.calculate_file_checksum(str(file2))
         
         assert checksum1 != checksum2
+
+
+class TestDeleteOperations:
+    """Tester för att ta bort filer och konton."""
+
+    @pytest.fixture(autouse=True)
+    def setup_temp_db(self, tmp_path, monkeypatch):
+        """Skapar en temporär accounts-databas för varje test."""
+        temp_accounts_path = tmp_path / "accounts.yaml"
+        monkeypatch.setattr(account_manager, 'ACCOUNTS_DB_PATH', temp_accounts_path)
+        yield temp_accounts_path
+
+    @pytest.fixture
+    def sample_file(self, tmp_path):
+        """Skapar en exempelfil för testning."""
+        test_file = tmp_path / "test_import.csv"
+        test_file.write_text("Bokföringsdatum,Belopp,Rubrik\n2025-01-15,-350.50,ICA Maxi\n", encoding='utf-8')
+        return str(test_file)
+
+    def test_delete_imported_file_success(self, sample_file):
+        """Test att ta bort en importerad fil."""
+        # Skapa konto och importera fil
+        account_manager.get_or_create_account("TEST_KONTO")
+        account_manager.add_imported_file("TEST_KONTO", sample_file)
+        
+        # Verifiera att filen finns
+        accounts = account_manager.load_accounts()
+        assert len(accounts["TEST_KONTO"].imported_files) == 1
+        
+        # Ta bort filen
+        filename = Path(sample_file).name
+        result = account_manager.delete_imported_file("TEST_KONTO", filename)
+        
+        assert result is True
+        
+        # Verifiera att filen är borttagen
+        accounts = account_manager.load_accounts()
+        assert len(accounts["TEST_KONTO"].imported_files) == 0
+
+    def test_delete_imported_file_not_found(self):
+        """Test att ta bort en fil som inte finns."""
+        account_manager.get_or_create_account("TEST_KONTO")
+        
+        result = account_manager.delete_imported_file("TEST_KONTO", "nonexistent.csv")
+        
+        assert result is False
+
+    def test_delete_imported_file_nonexistent_account(self):
+        """Test att ta bort fil från konto som inte finns."""
+        result = account_manager.delete_imported_file("NONEXISTENT_ACCOUNT", "file.csv")
+        
+        assert result is False
+
+    def test_delete_account_success(self):
+        """Test att ta bort ett konto."""
+        # Skapa konto
+        account_manager.get_or_create_account("TEST_KONTO", "1234567890")
+        
+        # Verifiera att kontot finns
+        accounts = account_manager.load_accounts()
+        assert "TEST_KONTO" in accounts
+        
+        # Ta bort kontot
+        result = account_manager.delete_account("TEST_KONTO")
+        
+        assert result is True
+        
+        # Verifiera att kontot är borttaget
+        accounts = account_manager.load_accounts()
+        assert "TEST_KONTO" not in accounts
+
+    def test_delete_account_not_found(self):
+        """Test att ta bort ett konto som inte finns."""
+        result = account_manager.delete_account("NONEXISTENT_ACCOUNT")
+        
+        assert result is False
+
+    def test_clear_all_accounts(self):
+        """Test att rensa alla konton."""
+        # Skapa flera konton
+        account_manager.get_or_create_account("KONTO1")
+        account_manager.get_or_create_account("KONTO2")
+        account_manager.get_or_create_account("KONTO3")
+        
+        # Verifiera att konton finns
+        accounts = account_manager.load_accounts()
+        assert len(accounts) == 3
+        
+        # Rensa alla konton
+        account_manager.clear_all_accounts()
+        
+        # Verifiera att alla konton är borttagna
+        accounts = account_manager.load_accounts()
+        assert len(accounts) == 0

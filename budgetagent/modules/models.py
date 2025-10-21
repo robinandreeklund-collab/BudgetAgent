@@ -74,7 +74,7 @@ class Bill(BaseModel):
         amount: Belopp att betala
         due_date: Förfallodatum
         category: Kategori (t.ex. "Boende", "Försäkring")
-        account: Konto som fakturan ska belaста (valfritt)
+        account: Konto som fakturan ska belasta (valfritt)
         recurring: Om fakturan är återkommande
         frequency: Frekvens om återkommande (monthly, yearly, etc.)
         paid: Om fakturan är betald

@@ -25,8 +25,7 @@ from .models import Transaction, Account
 from .categorize_expenses import (
     add_training_example,
     auto_categorize,
-    build_index,
-    update_category_map
+    build_index
 )
 
 

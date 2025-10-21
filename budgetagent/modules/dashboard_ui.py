@@ -32,6 +32,9 @@ def create_app_layout() -> html.Div:
     return html.Div([
         html.H1("💸 BudgetAgent Dashboard", style={'textAlign': 'center'}),
         
+        # Dold Store för att signalera datauppdateringar
+        dcc.Store(id='data-update-trigger', data=0),
+        
         # Flikar för olika sektioner
         dcc.Tabs([
             dcc.Tab(label='Översikt', children=[
@@ -368,15 +371,17 @@ def render_dashboard() -> None:
     
     # Callback för att hantera Nordea CSV-uppladdning
     @app.callback(
-        Output('upload-feedback', 'children'),
+        [Output('upload-feedback', 'children'),
+         Output('data-update-trigger', 'data')],
         Input('upload-nordea-csv', 'contents'),
         State('upload-nordea-csv', 'filename'),
+        State('data-update-trigger', 'data'),
         prevent_initial_call=True
     )
-    def handle_csv_upload(contents, filename):
+    def handle_csv_upload(contents, filename, current_trigger):
         """Hanterar uppladdning av Nordea CSV-fil."""
         if contents is None:
-            return html.Div()
+            return html.Div(), current_trigger
         
         try:
             # Dekoda innehållet
@@ -392,39 +397,54 @@ def render_dashboard() -> None:
             transactions = import_bank_data.import_and_parse(temp_path)
             
             if not transactions:
-                return html.Div([
-                    html.Span('⚠️ ', style={'fontSize': '20px'}),
-                    html.Span(f'Inga transaktioner hittades i {filename}')
-                ], style={'color': 'orange', 'padding': '10px', 'backgroundColor': '#fff3cd', 'borderRadius': '5px'})
+                return (
+                    html.Div([
+                        html.Span('⚠️ ', style={'fontSize': '20px'}),
+                        html.Span(f'Inga transaktioner hittades i {filename}')
+                    ], style={'color': 'orange', 'padding': '10px', 'backgroundColor': '#fff3cd', 'borderRadius': '5px'}),
+                    current_trigger
+                )
             
             # Spara transaktionerna till fil
             parse_transactions.save_transactions(transactions, append=True)
             
-            return html.Div([
+            feedback = html.Div([
                 html.Span('✅ ', style={'fontSize': '20px'}),
                 html.Span(f'Import lyckades! {len(transactions)} transaktioner importerade och sparade från {filename}'),
                 html.Br(),
                 html.Small(f'Första transaktion: {transactions[0].date} - {transactions[0].description} - {transactions[0].amount} SEK', 
                           style={'color': '#666'}),
                 html.Br(),
-                html.Small('Uppdatera sidan för att se transaktionerna i prognosen.', style={'color': '#666', 'fontStyle': 'italic'})
+                html.Small('Prognos och insikter uppdaterade automatiskt!', style={'color': '#28a745', 'fontStyle': 'italic', 'fontWeight': 'bold'})
             ], style={'color': 'green', 'padding': '10px', 'backgroundColor': '#d4edda', 'borderRadius': '5px'})
             
+            # Öka trigger för att signalera att data har uppdaterats
+            return feedback, current_trigger + 1
+            
         except FileNotFoundError as e:
-            return html.Div([
-                html.Span('❌ ', style={'fontSize': '20px'}),
-                html.Span(f'Fil hittades inte: {str(e)}')
-            ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'})
+            return (
+                html.Div([
+                    html.Span('❌ ', style={'fontSize': '20px'}),
+                    html.Span(f'Fil hittades inte: {str(e)}')
+                ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'}),
+                current_trigger
+            )
         except ValueError as e:
-            return html.Div([
-                html.Span('❌ ', style={'fontSize': '20px'}),
-                html.Span(f'Felaktigt filformat: {str(e)}')
-            ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'})
+            return (
+                html.Div([
+                    html.Span('❌ ', style={'fontSize': '20px'}),
+                    html.Span(f'Felaktigt filformat: {str(e)}')
+                ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'}),
+                current_trigger
+            )
         except Exception as e:
-            return html.Div([
-                html.Span('❌ ', style={'fontSize': '20px'}),
-                html.Span(f'Fel vid import: {str(e)}')
-            ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'})
+            return (
+                html.Div([
+                    html.Span('❌ ', style={'fontSize': '20px'}),
+                    html.Span(f'Fel vid import: {str(e)}')
+                ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px'}),
+                current_trigger
+            )
     
     # Callback för att uppdatera prognos-grafen vid sidladdning
     @app.callback(
@@ -526,14 +546,21 @@ def render_dashboard() -> None:
     # Callback för insikter och varningar
     @app.callback(
         [Output('alerts-container', 'children'),
-         Output('insights-container', 'children')],
-        Input('forecast-graph', 'id')  # Trigger vid laddning
+         Output('insights-container', 'children'),
+         Output('forecast-graph', 'figure', allow_duplicate=True)],
+        [Input('forecast-graph', 'id'),
+         Input('data-update-trigger', 'data')],  # Lyssna också på datauppdateringar
+        prevent_initial_call='initial_duplicate'
     )
-    def update_insights(_):
-        """Uppdaterar insikter och varningar."""
+    def update_insights(_, trigger_value):
+        """Uppdaterar insikter, varningar och prognos."""
         try:
             # Ladda faktiska transaktioner
             transactions = parse_transactions.load_transactions()
+            
+            # Uppdatera prognos med aktuell data
+            forecast_data = forecast_engine.simulate_monthly_balance(6)
+            new_figure = update_forecast_graph(forecast_data)
             
             if transactions:
                 total_transactions = len(transactions)
@@ -564,9 +591,9 @@ def render_dashboard() -> None:
                 html.Ul([html.Li(insight) for insight in insights_list])
             ])
             
-            return alerts_div, insights_div
+            return alerts_div, insights_div, new_figure
         except Exception as e:
-            return html.Div(f"Fel: {e}"), html.Div()
+            return html.Div(f"Fel: {e}"), html.Div(), go.Figure()
     
     # Callback för att spara inställningar och uppdatera prognos
     @app.callback(

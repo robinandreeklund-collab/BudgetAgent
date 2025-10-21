@@ -1,0 +1,3 @@
+"""Test categorization rules."""
+
+pass

@@ -250,20 +250,11 @@ def extract_balance_info(raw_data: pd.DataFrame, bank_format: str) -> Optional[t
     
     # Olika banker har olika sätt att visa saldo
     if bank_format == "Nordea":
-        # Nordea kan ha antingen "Saldo" eller en kolumn med saldovärden
-        # Leta efter kolumn som heter "Saldo" och inte används för valuta
-        if 'Saldo' in raw_data.columns and 'Valuta' in raw_data.columns:
-            # Saldo är en separat kolumn med saldovärden
-            saldo_col = raw_data['Saldo']
-            # Ta sista icke-NaN värdet
-            if not saldo_col.isna().all():
-                balance_val = saldo_col.dropna().iloc[-1]
-                try:
-                    balance = Decimal(str(balance_val).replace(',', '.').replace(' ', ''))
-                except:
-                    pass
+        # Nordea har flera olika format
+        # Format 1: Traditionellt med Saldo-kolumn för saldovärden
+        # Format 2: Där "Saldo" = valuta och "Rubrik" = saldo-belopp
         
-        # Få datum från sista transaktionen
+        # Först, försök hitta datum
         if 'Bokföringsdatum' in raw_data.columns:
             date_col = raw_data['Bokföringsdatum'].dropna()
             if not date_col.empty:
@@ -273,9 +264,66 @@ def extract_balance_info(raw_data: pd.DataFrame, bank_format: str) -> Optional[t
             if not date_col.empty:
                 balance_date = pd.to_datetime(date_col.iloc[-1]).date()
         
-        # Valuta
-        if 'Valuta' in raw_data.columns and not raw_data['Valuta'].isna().all():
-            currency = raw_data['Valuta'].dropna().iloc[0]
+        # Försök extrahera saldo
+        # Fall 1: Saldo är valuta och Rubrik är saldo-beloppet
+        if 'Saldo' in raw_data.columns and 'Rubrik' in raw_data.columns and 'Valuta' in raw_data.columns:
+            # Kontrollera om Saldo-kolumnen innehåller valuta-värden (SEK, EUR etc)
+            saldo_sample = raw_data['Saldo'].dropna()
+            if not saldo_sample.empty:
+                first_val = str(saldo_sample.iloc[0]).strip().upper()
+                if first_val in ['SEK', 'EUR', 'USD', 'NOK', 'DKK']:
+                    # Detta är formatet där Saldo=valuta och Rubrik=saldo-belopp
+                    rubrik_col = raw_data['Rubrik']
+                    if not rubrik_col.isna().all():
+                        balance_val = rubrik_col.dropna().iloc[-1]
+                        try:
+                            balance = Decimal(str(balance_val).replace(',', '.').replace(' ', ''))
+                        except:
+                            pass
+                    currency = first_val
+                else:
+                    # Saldo innehåller numeriska värden
+                    balance_val = saldo_sample.iloc[-1]
+                    try:
+                        balance = Decimal(str(balance_val).replace(',', '.').replace(' ', ''))
+                    except:
+                        pass
+                    # Hämta valuta från Valuta-kolumnen
+                    if not raw_data['Valuta'].isna().all():
+                        currency = raw_data['Valuta'].dropna().iloc[0]
+        
+        # Fall 2: Saldo är en vanlig kolumn med saldovärden
+        elif 'Saldo' in raw_data.columns:
+            saldo_col = raw_data['Saldo']
+            if not saldo_col.isna().all():
+                balance_val = saldo_col.dropna().iloc[-1]
+                try:
+                    # Testa om det är ett numeriskt värde
+                    balance = Decimal(str(balance_val).replace(',', '.').replace(' ', ''))
+                except:
+                    pass
+            
+            # Hämta valuta
+            if 'Valuta' in raw_data.columns and not raw_data['Valuta'].isna().all():
+                currency = raw_data['Valuta'].dropna().iloc[0]
+        
+        # Fall 3: Ingen Saldo-kolumn, försök hitta i annan kolumn
+        # Vissa Nordea-format kan ha saldo i en kolumn som heter något annat
+        # Kontrollera kolumner med numeriska värden som inte är Belopp
+        if balance is None:
+            for col in raw_data.columns:
+                if col not in ['Belopp', 'Bokföringsdatum', 'Bokföringsdag', 'Rubrik', 'Namn', 
+                              'Avsändare', 'Mottagare', 'Valuta']:
+                    # Testa om denna kolumn innehåller numeriska värden
+                    try:
+                        test_col = raw_data[col].dropna()
+                        if not test_col.empty:
+                            last_val = test_col.iloc[-1]
+                            # Försök konvertera till Decimal
+                            balance = Decimal(str(last_val).replace(',', '.').replace(' ', ''))
+                            break
+                    except:
+                        continue
     
     elif bank_format == "SEB":
         # SEB har alltid Saldo-kolumn
@@ -292,6 +340,9 @@ def extract_balance_info(raw_data: pd.DataFrame, bank_format: str) -> Optional[t
             date_col = raw_data['Bokföringsdatum'].dropna()
             if not date_col.empty:
                 balance_date = pd.to_datetime(date_col.iloc[-1]).date()
+        
+        if 'Valuta' in raw_data.columns and not raw_data['Valuta'].isna().all():
+            currency = raw_data['Valuta'].dropna().iloc[0]
     
     if balance is not None and balance_date is not None:
         return (balance, balance_date, currency)

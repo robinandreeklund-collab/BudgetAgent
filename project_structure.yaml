@@ -4,6 +4,7 @@ project:
     - import_bank_data
     - parse_transactions
     - categorize_expenses
+    - parse_pdf_bills
     - upcoming_bills
     - income_tracker
     - net_balance_splitter
@@ -11,12 +12,15 @@ project:
     - alerts_and_insights
     - dashboard_ui
     - settings_panel
+
   flow:
     - step: "Import bank data"
       module: import_bank_data
     - step: "Parse and categorize"
       module: parse_transactions
-    - step: "Add bills and income"
+    - step: "Add bills from PDF"
+      module: parse_pdf_bills
+    - step: "Register bills and income"
       modules: [upcoming_bills, income_tracker]
     - step: "Forecast and split"
       modules: [forecast_engine, net_balance_splitter]

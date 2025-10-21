@@ -1,6 +1,7 @@
 modules:
   import_bank_data:
     description: Läser in bankutdrag från olika format (CSV, Excel, JSON)
+    yaml_config: [settings_panel.yaml]
     functions:
       - name: load_file
         input: path: str
@@ -9,12 +10,11 @@ modules:
       - name: detect_format
         input: data: DataFrame
         output: str
-        description: Identifierar bankformat (Swedbank, SEB, Revolut etc.)
+        description: Identifierar bankformat
       - name: normalize_columns
         input: data: DataFrame, format: str
         output: DataFrame
-        description: Standardiserar kolumnnamn till date, amount, description, currency
-    yaml: settings_panel.yaml → import_format
+        description: Standardiserar kolumnnamn
 
   parse_transactions:
     description: Extraherar och strukturerar transaktioner från rådata
@@ -26,82 +26,109 @@ modules:
       - name: clean_descriptions
         input: data: DataFrame
         output: DataFrame
-        description: Tar bort onödig text, symboler, bankkoder
+        description: Rensar textfält
       - name: extract_metadata
         input: data: DataFrame
         output: DataFrame
-        description: Identifierar butik, kategori, plats via regex/heuristik
+        description: Identifierar butik, plats, kategori
 
   categorize_expenses:
     description: Kategoriserar transaktioner automatiskt eller manuellt
+    yaml_config: [categorization_rules.yaml]
     functions:
       - name: auto_categorize
         input: data: DataFrame, rules: dict
         output: DataFrame
-        description: Matchar mot nyckelord i beskrivning
+        description: Automatisk kategorisering
       - name: manual_override
         input: data: DataFrame, overrides: dict
         output: DataFrame
-        description: Tillåter användaren att justera kategorier
+        description: Manuell justering
       - name: update_category_map
         input: new_rules: dict
         output: None
-        description: Uppdaterar YAML-regler för framtida matchning
-    yaml: categorization_rules.yaml
+        description: Uppdaterar regelbas
+
+  parse_pdf_bills:
+    description: Extraherar fakturor från PDF och konverterar till YAML-format
+    yaml_output: [upcoming_bills.yaml]
+    dependencies: [pdfplumber, pytesseract, pdf2image, re]
+    functions:
+      - name: extract_text_from_pdf
+        input: file_path: str
+        output: str
+        description: Läser text från PDF
+      - name: extract_bills_from_text
+        input: raw_text: str
+        output: List[dict]
+        description: Identifierar fakturablock och extraherar fält
+      - name: validate_bill_structure
+        input: bill: dict
+        output: bool
+        description: Säkerställer korrekt format
+      - name: write_bills_to_yaml
+        input: bills: List[dict], yaml_path: str
+        output: None
+        description: Skriver fakturor till YAML
+      - name: extract_text_with_ocr
+        input: file_path: str
+        output: str
+        description: OCR för bildbaserade fakturor
 
   upcoming_bills:
-    description: Hanterar framtida fakturor med belopp, förfallodatum och kategori
+    description: Hanterar framtida fakturor med belopp, datum och kategori
+    yaml_config: [upcoming_bills.yaml]
     functions:
       - name: add_bill
         input: name, amount, due_date, category
         output: None
-        description: Lägger till ny faktura i YAML
+        description: Lägger till faktura
       - name: get_upcoming_bills
         input: month: str
         output: List[dict]
-        description: Returnerar alla fakturor för vald månad
+        description: Hämtar fakturor för månad
       - name: validate_bill_format
         input: bill: dict
         output: bool
-        description: Säkerställer korrekt struktur
-    yaml: upcoming_bills.yaml
+        description: Validerar fakturapost
 
   income_tracker:
-    description: Registrerar inkomster per person, både återkommande och engångs
+    description: Registrerar inkomster per person
+    yaml_config: [income_tracker.yaml]
     functions:
       - name: add_income
         input: person, source, amount, date, recurring
         output: None
-        description: Sparar inkomst i YAML
+        description: Lägger till inkomst
       - name: get_monthly_income
         input: person, month
         output: float
-        description: Summerar inkomster för vald månad
+        description: Summerar inkomster
       - name: forecast_income
         input: months: int
         output: dict
-        description: Skapar framtida inkomstprognos
-    yaml: income_tracker.yaml
+        description: Prognos för framtida inkomster
 
   net_balance_splitter:
-    description: Fördelar kvarvarande pengar efter utgifter enligt valda regler
+    description: Fördelar kvarvarande pengar efter utgifter
+    yaml_config: [net_balance_splitter.yaml]
     functions:
       - name: split_balance
         input: total_income: dict, total_expenses: dict, rule: str
         output: dict
-        description: Returnerar fördelning per person
+        description: Fördelar saldo
       - name: apply_custom_ratio
         input: ratio: dict
         output: None
-        description: T.ex. 60/40 mellan Robin och Partner
+        description: Anpassad fördelning
       - name: calculate_shared_vs_individual
         input: expenses: DataFrame
         output: dict
-        description: Separerar gemensamma och individuella utgifter
-    yaml: net_balance_splitter.yaml
+        description: Separera gemensamma och individuella utgifter
 
   forecast_engine:
-    description: Simulerar framtida saldo baserat på historik + planerade inkomster/fakturor
+    description: Simulerar framtida saldo baserat på historik och planerade poster
+    yaml_config: [forecast_engine.yaml]
     functions:
       - name: calculate_historical_average
         input: data: DataFrame, window: int
@@ -110,68 +137,67 @@ modules:
       - name: inject_future_income_and_bills
         input: income: list, bills: list
         output: dict
-        description: Skapar framtida kassaflöde
+        description: Skapar kassaflöde
       - name: simulate_monthly_balance
         input: months: int
         output: DataFrame
-        description: Returnerar saldo per månad
+        description: Saldo per månad
       - name: compare_scenarios
         input: scenarios: list
         output: dict
-        description: T.ex. “Vad händer om vi får 5000 kr extra i januari?”
-    yaml: forecast_engine.yaml
+        description: Jämför framtidsscenarier
 
   alerts_and_insights:
-    description: Genererar varningar och insikter baserat på regler och forecast
+    description: Genererar varningar och insikter baserat på forecast och regler
+    yaml_config: [settings_panel.yaml]
     functions:
       - name: check_budget_thresholds
         input: data: DataFrame, thresholds: dict
         output: List[str]
-        description: T.ex. “Matkostnad över 4000 kr!”
+        description: Identifierar överskridna gränser
       - name: generate_insights
         input: data: DataFrame
         output: List[str]
-        description: T.ex. “Du spenderar 20% mer på nöje än genomsnittet”
+        description: Skapar insikter
       - name: recommend_actions
         input: insight: str
         output: str
-        description: T.ex. “Överväg att minska streamingkostnader”
-    yaml: settings_panel.yaml → alert_threshold
+        description: Ger rekommendationer
 
   dashboard_ui:
     description: Dash-gränssnitt för visualisering, inmatning och agentinteraktion
+    yaml_config: [settings_panel.yaml, forecast_engine.yaml, income_tracker.yaml]
     functions:
       - name: render_dashboard
-        input: None
-        output: None
-        description: Startar Dash-app med alla komponenter
+        input: null
+        output: null
+        description: Startar Dash-app
       - name: update_forecast_graph
         input: data: DataFrame
-        output: None
-        description: Visar framtida saldo
+        output: Dash component
+        description: Visualiserar saldo
       - name: input_panel
-        input: None
+        input: null
         output: Dash layout
-        description: Formulär för inkomster, fakturor, inställningar
+        description: Formulär för inmatning
       - name: agent_query_interface
-        input: None
+        input: null
         output: Dash layout
-        description: Frågefält för t.ex. “Hur mycket har vi kvar i januari?”
-    yaml: settings_panel.yaml, forecast_engine.yaml, income_tracker.yaml
+        description: Frågefält för interaktiv analys
 
   settings_panel:
-    description: Hanterar alla inställningar via sliders, dropdowns, toggles
+    description: Hanterar alla inställningar via sliders, dropdowns och toggles
+    yaml_config: [settings_panel.yaml]
     functions:
       - name: load_settings
         input: yaml_path: str
         output: dict
-        description: Läser in alla inställningar
+        description: Läser in inställningar
       - name: render_controls
         input: settings: dict
         output: Dash layout
-        description: Skapar Dash-komponenter
+        description: Skapar UI-komponenter
       - name: update_settings
         input: new_values: dict
         output: None
-        description: Sparar ändringar till YAML
-    yaml: settings_panel.yaml
+        description: Sparar ändringar

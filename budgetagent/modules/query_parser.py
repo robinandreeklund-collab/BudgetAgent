@@ -233,7 +233,7 @@ def handle_show_bills(params: Dict) -> str:
     from . import upcoming_bills
     
     month = params.get("month")
-    bills = upcoming_bills.get_upcoming_bills(month) if month else upcoming_bills.get_upcoming_bills(None)
+    bills = upcoming_bills.get_upcoming_bills(month)
     
     if not bills:
         return f"Inga fakturor hittades{' för ' + month if month else ''}."

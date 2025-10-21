@@ -28,6 +28,37 @@ BudgetAgent är ett modulärt, agentvänligt system för att hantera hushållsek
 | `alerts_and_insights` | Varningar och rekommendationer baserat på budgetmål |
 | `dashboard_ui` | Interaktiv visualisering via Streamlit eller Dash |
 | `settings_panel` | Granulär kontroll över alla inställningar och regler |
+| `parse_pdf_bills` | Extraherar fakturainformation från PDF-filer och konverterar till YAML-format |
+
+## 📋 Status: Modulimplementering
+
+### ✅ Strukturerade moduler (enligt modules.yaml)
+- [x] **import_bank_data.py** - Struktur, docstrings, funktionssignaturer ✓
+- [x] **parse_transactions.py** - Struktur, docstrings, funktionssignaturer ✓
+- [x] **categorize_expenses.py** - Struktur, docstrings, funktionssignaturer ✓
+- [x] **upcoming_bills.py** - Struktur, docstrings, funktionssignaturer ✓
+- [x] **income_tracker.py** - Struktur, docstrings, funktionssignaturer ✓
+- [x] **net_balance_splitter.py** - Struktur, docstrings, funktionssignaturer ✓
+- [x] **forecast_engine.py** - Struktur, docstrings, funktionssignaturer ✓
+- [x] **alerts_and_insights.py** - Struktur, docstrings, funktionssignaturer ✓
+- [x] **dashboard_ui.py** - Struktur, docstrings, funktionssignaturer ✓
+- [x] **settings_panel.py** - Struktur, docstrings, funktionssignaturer ✓
+- [x] **parse_pdf_bills.py** - Struktur, docstrings, funktionssignaturer ✓
+
+### 📝 Moduldetaljer
+Alla moduler innehåller:
+- ✅ Svensk moduldocstring med beskrivning
+- ✅ Funktionssignaturer enligt modules.yaml
+- ✅ Svenska docstrings för varje funktion
+- ✅ Pass-statements (ingen fullständig implementering)
+- ✅ Exempel på YAML-konfiguration där relevant
+
+### 🔄 Nästa steg
+Modulstrukturen är klar. För att göra systemet funktionellt behövs:
+- Implementering av funktionslogik
+- Testfall för varje modul
+- Integration mellan moduler
+- Dash UI-implementation
 
 ---
 

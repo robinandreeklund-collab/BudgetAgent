@@ -200,4 +200,34 @@ modules:
       - name: update_settings
         input: new_values: dict
         output: None
-        description: Sparar ändringar
+        description: Sparar ändringar till YAML
+    yaml: settings_panel.yaml
+
+  parse_pdf_bills:
+    description: Extraherar fakturainformation från PDF-filer och konverterar till YAML-format för kommande fakturor
+    functions:
+      - name: extract_text_from_pdf
+        input: file_path: str
+        output: str
+        description: Läser text från PDF-sidor och returnerar som sträng
+      - name: extract_bills_from_text
+        input: raw_text: str
+        output: List[dict]
+        description: Identifierar fakturor i texten via regex eller heuristik
+      - name: validate_bill_structure
+        input: bill: dict
+        output: bool
+        description: Säkerställer att varje faktura har korrekt format och fält
+      - name: write_bills_to_yaml
+        input: bills: List[dict], yaml_path: str
+        output: None
+        description: Lägger till extraherade fakturor i upcoming_bills.yaml
+      - name: extract_text_with_ocr
+        input: file_path: str
+        output: str
+        description: (Valbar) Använder OCR för att tolka bildbaserade fakturor
+    yaml: parse_pdf_bills.yaml
+    dependencies:
+      - pdfplumber
+      - pytesseract (valbart för OCR)
+      - pdf2image (valbart för bildbaserade fakturor)

@@ -862,22 +862,30 @@ def render_dashboard() -> None:
                 
                 # Lägg till totalt aktuellt saldo från alla konton
                 if accounts:
+                    from decimal import Decimal
                     total_balance = Decimal('0')
                     currency = "SEK"  # Default valuta
                     accounts_with_balance = 0
-                    
+                    currencies = set()
+
                     for acc_name, acc in accounts.items():
                         if acc.current_balance is not None:
                             total_balance += acc.current_balance
                             accounts_with_balance += 1
+                            currencies.add(acc.balance_currency)
                             # Använd valutan från första kontot med saldo
                             if accounts_with_balance == 1:
                                 currency = acc.balance_currency
-                    
+
                     if accounts_with_balance > 0:
-                        insights_list.append(
-                            f"Aktuellt saldo: {float(total_balance):.2f} {currency}"
-                        )
+                        if len(currencies) > 1:
+                            alerts_list.append(
+                                "⚠️ Konton har olika valutor. Summering av saldo kan vara missvisande."
+                            )
+                        else:
+                            insights_list.append(
+                                f"Aktuellt saldo: {float(total_balance):.2f} {currency}"
+                            )
             else:
                 alerts_list = ["Inga varningar för tillfället"]
                 insights_list = ["Importera Nordea CSV-filer för att se insikter"]

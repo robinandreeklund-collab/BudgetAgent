@@ -14,7 +14,8 @@ import yaml
 import re
 from pathlib import Path
 from typing import List, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, date
+from decimal import Decimal
 from .models import Account, Transaction
 
 
@@ -131,6 +132,14 @@ def load_accounts() -> dict:
             if 'last_import_date' in account_data and account_data['last_import_date']:
                 account_data['last_import_date'] = datetime.fromisoformat(account_data['last_import_date'])
             
+            # Konvertera current_balance från float/string till Decimal om det finns
+            if 'current_balance' in account_data and account_data['current_balance'] is not None:
+                account_data['current_balance'] = Decimal(str(account_data['current_balance']))
+            
+            # Konvertera balance_date från sträng till date om det finns
+            if 'balance_date' in account_data and account_data['balance_date']:
+                account_data['balance_date'] = date.fromisoformat(account_data['balance_date'])
+            
             accounts[account_name] = Account(**account_data)
         
         return accounts
@@ -158,6 +167,14 @@ def save_accounts(accounts: dict) -> None:
         # Konvertera datetime till ISO-format sträng
         if 'last_import_date' in account_dict and account_dict['last_import_date']:
             account_dict['last_import_date'] = account_dict['last_import_date'].isoformat()
+        
+        # Konvertera Decimal till string för YAML-serialisering
+        if 'current_balance' in account_dict and account_dict['current_balance'] is not None:
+            account_dict['current_balance'] = str(account_dict['current_balance'])
+        
+        # Konvertera date till ISO-format sträng
+        if 'balance_date' in account_dict and account_dict['balance_date']:
+            account_dict['balance_date'] = account_dict['balance_date'].isoformat()
         
         accounts_data[account_name] = account_dict
     

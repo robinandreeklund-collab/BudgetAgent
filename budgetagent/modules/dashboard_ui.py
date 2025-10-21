@@ -897,10 +897,10 @@ def render_dashboard() -> None:
          Output('data-update-trigger', 'data', allow_duplicate=True),
          Output('categorization-review-panel', 'children', allow_duplicate=True)],
         Input('confirm-import-button', 'n_clicks'),
-        [State({'type': 'category-select', 'index': i}, 'value') for i in range(100)],  # Max 100 transaktioner
+        State({'type': 'category-select', 'index': ALL}, 'value'),
         prevent_initial_call=True
     )
-    def confirm_and_save_transactions(n_clicks, *category_values):
+    def confirm_and_save_transactions(n_clicks, category_values):
         """Sparar transaktioner med uppdaterade kategorier."""
         if not n_clicks or not temp_transactions_store['transactions']:
             return html.Div(), 0, html.Div()
@@ -909,6 +909,7 @@ def render_dashboard() -> None:
             transactions = temp_transactions_store['transactions']
             
             # Uppdatera kategorier baserat på användarens val
+            # category_values är nu en lista som matchar antalet dropdowns
             for idx, trans in enumerate(transactions):
                 if idx < len(category_values) and category_values[idx]:
                     trans.category = category_values[idx]

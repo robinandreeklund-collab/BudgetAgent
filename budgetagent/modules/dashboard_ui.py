@@ -1143,10 +1143,12 @@ def render_dashboard() -> None:
         if not ctx.triggered or not any(n_clicks_list):
             return html.Div(), update_accounts_display(0, None)
         
-        # Hitta vilken knapp som klickades
-        triggered_id = ctx.triggered[0]['prop_id'].split('.')[0]
-        import json
-        button_data = json.loads(triggered_id)
+        # Använd ctx.triggered_id direkt för pattern-matching callbacks
+        # Det är redan en dictionary, inte en JSON-sträng
+        button_data = ctx.triggered_id
+        
+        if not button_data:
+            return html.Div(), update_accounts_display(0, None)
         
         account_name = button_data['account']
         filename = button_data['filename']
@@ -1182,10 +1184,12 @@ def render_dashboard() -> None:
         if not ctx.triggered or not any(n_clicks_list):
             return html.Div(), update_accounts_display(0, None)
         
-        # Hitta vilken knapp som klickades
-        triggered_id = ctx.triggered[0]['prop_id'].split('.')[0]
-        import json
-        button_data = json.loads(triggered_id)
+        # Använd ctx.triggered_id direkt för pattern-matching callbacks
+        # Det är redan en dictionary, inte en JSON-sträng
+        button_data = ctx.triggered_id
+        
+        if not button_data:
+            return html.Div(), update_accounts_display(0, None)
         
         account_name = button_data['account']
         

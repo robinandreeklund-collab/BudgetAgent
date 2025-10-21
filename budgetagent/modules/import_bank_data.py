@@ -37,7 +37,19 @@ def load_file(path: str) -> pd.DataFrame:
     suffix = file_path.suffix.lower()
     
     if suffix == '.csv':
-        return pd.read_csv(path)
+        # Försök först med komma-separator, sedan tab
+        try:
+            df = pd.read_csv(path)
+            # Om endast en kolumn hittas, försök med tab som separator
+            if len(df.columns) == 1:
+                df = pd.read_csv(path, sep='\t')
+            return df
+        except Exception as e:
+            # Försök med tab-separator
+            try:
+                return pd.read_csv(path, sep='\t')
+            except:
+                raise ValueError(f"Kunde inte läsa CSV-fil: {str(e)}")
     elif suffix in ['.xlsx', '.xls']:
         return pd.read_excel(path)
     elif suffix == '.json':
@@ -65,12 +77,14 @@ def detect_format(data: pd.DataFrame) -> str:
     columns = [col.lower() for col in data.columns]
     
     # Nordea format: Bokföringsdatum, Belopp, och ofta Rubrik eller Avsändare/Mottagare
-    # Nordea använder ofta "Bokföringsdatum" och antingen "Rubrik" eller både "Avsändare" och "Mottagare"
-    if 'bokföringsdatum' in columns and 'belopp' in columns:
-        # Kontrollera om det är Nordea (har Rubrik eller Avsändare/Mottagare)
-        if 'rubrik' in columns or ('avsändare' in columns or 'mottagare' in columns):
-            # Men inte SEB som också har Bokföringsdatum
-            if 'saldo' not in columns:
+    # Nordea använder ofta "Bokföringsdatum" eller "Bokföringsdag" och antingen "Rubrik", "Namn" eller både "Avsändare" och "Mottagare"
+    # Kan även ha "Saldo"-kolumn (till skillnad från SEB som alltid har Saldo)
+    if ('bokföringsdatum' in columns or 'bokföringsdag' in columns) and 'belopp' in columns:
+        # Kontrollera om det är Nordea (har Rubrik, Namn eller Avsändare/Mottagare)
+        if 'rubrik' in columns or 'namn' in columns or ('avsändare' in columns or 'mottagare' in columns):
+            # Nordea kan ha Saldo, men SEB har alltid Saldo + specifik struktur
+            # Om både Saldo och typiska SEB-kolumner finns, är det SEB
+            if not ('saldo' in columns and 'valutadatum' not in columns and 'rubrik' not in columns):
                 return "Nordea"
     
     # Swedbank format: Datum, Belopp, Beskrivning
@@ -111,17 +125,45 @@ def normalize_columns(data: pd.DataFrame, format: str) -> pd.DataFrame:
     
     # Mapping av kolumnnamn baserat på format
     if format == "Nordea":
-        column_mapping = {
-            'Bokföringsdatum': 'date',
-            'Belopp': 'amount',
-            'Rubrik': 'description',
-            'Valuta': 'currency'
-        }
-        # Nordea kan ha "Avsändare" eller "Mottagare" som beskrivning
-        if 'Rubrik' not in df.columns and 'Avsändare' in df.columns:
+        # Nordea kan ha olika kolumnformat
+        # Format 1: Bokföringsdatum, Belopp, Rubrik, Valuta
+        # Format 2: Bokföringsdag, Belopp, Avsändare, Mottagare, Namn, Rubrik, Saldo, Valuta
+        # där Namn = beskrivning, Saldo = valuta, Rubrik = saldo-belopp
+        
+        column_mapping = {}
+        
+        # Datum-kolumn
+        if 'Bokföringsdatum' in df.columns:
+            column_mapping['Bokföringsdatum'] = 'date'
+        elif 'Bokföringsdag' in df.columns:
+            column_mapping['Bokföringsdag'] = 'date'
+        
+        # Belopp
+        column_mapping['Belopp'] = 'amount'
+        
+        # Beskrivning - Nordea har olika varianter
+        if 'Namn' in df.columns:
+            # Format med Namn-kolumn (det är den riktiga beskrivningen)
+            column_mapping['Namn'] = 'description'
+        elif 'Rubrik' in df.columns:
+            column_mapping['Rubrik'] = 'description'
+        elif 'Avsändare' in df.columns:
             column_mapping['Avsändare'] = 'description'
-        elif 'Rubrik' not in df.columns and 'Mottagare' in df.columns:
+        elif 'Mottagare' in df.columns:
             column_mapping['Mottagare'] = 'description'
+        
+        # Valuta - Nordea kan ha Valuta eller Saldo som valuta-kolumn
+        if 'Saldo' in df.columns and 'Valuta' in df.columns:
+            # Kontrollera om Valuta-kolumnen är tom (NaN)
+            if df['Valuta'].isna().all():
+                # Använd Saldo-kolumnen istället
+                column_mapping['Saldo'] = 'currency'
+            else:
+                column_mapping['Valuta'] = 'currency'
+        elif 'Valuta' in df.columns:
+            column_mapping['Valuta'] = 'currency'
+        elif 'Saldo' in df.columns:
+            column_mapping['Saldo'] = 'currency'
     elif format == "Swedbank":
         column_mapping = {
             'Datum': 'date',
@@ -203,8 +245,9 @@ def import_and_parse(file_path: str) -> List[Transaction]:
             # Parsa datum
             date_val = pd.to_datetime(row['date']).date()
             
-            # Konvertera belopp till Decimal
-            amount_val = Decimal(str(row['amount']))
+            # Konvertera belopp till Decimal (hantera komma som decimaltecken)
+            amount_str = str(row['amount']).replace(',', '.')
+            amount_val = Decimal(amount_str)
             
             # Beskrivning
             description = str(row['description'])

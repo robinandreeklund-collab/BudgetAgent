@@ -86,3 +86,28 @@ class TestNordeaImport:
         assert len(transactions) == 1
         # Beskrivningen borde komma från antingen Avsändare eller Mottagare
         assert transactions[0].description is not None
+
+    def test_nordea_tab_separated_with_saldo(self, tmp_path):
+        """Test Nordea CSV med tab-separator och Saldo-kolumn som valuta."""
+        # Detta är det verkliga Nordea-formatet som användaren har
+        csv_content = """Bokföringsdag\tBelopp\tAvsändare\tMottagare\tNamn\tRubrik\tSaldo\tValuta
+2025-10-21\t-500\t1709 20 72840\t\tSwish betalning MICKES DÄCK\t4995,52\tSEK\t
+2025-10-21\t-3737,5\t1709 20 72840\t\tAutogiro K*jb-bildemo\t5495,52\tSEK\t"""
+        
+        file_path = tmp_path / "nordea_tab.csv"
+        file_path.write_text(csv_content, encoding='utf-8')
+        
+        transactions = import_bank_data.import_and_parse(str(file_path))
+        assert len(transactions) == 2, f"Förväntade 2 transaktioner men fick {len(transactions)}"
+        
+        # Kontrollera första transaktionen
+        first = transactions[0]
+        assert first.date == date(2025, 10, 21)
+        assert first.amount == Decimal('-500')
+        assert 'Swish' in first.description or 'MICKES DÄCK' in first.description
+        assert first.currency == "SEK"
+        
+        # Kontrollera andra transaktionen med komma-decimal
+        second = transactions[1]
+        assert second.amount == Decimal('-3737.5')
+        assert 'Autogiro' in second.description

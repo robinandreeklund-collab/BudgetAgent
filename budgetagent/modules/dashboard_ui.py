@@ -361,7 +361,7 @@ def render_dashboard() -> None:
     from datetime import datetime
     import base64
     import io
-    from . import import_bank_data
+    from . import import_bank_data, parse_transactions
     
     app = Dash(__name__)
     app.layout = create_app_layout()
@@ -397,15 +397,17 @@ def render_dashboard() -> None:
                     html.Span(f'Inga transaktioner hittades i {filename}')
                 ], style={'color': 'orange', 'padding': '10px', 'backgroundColor': '#fff3cd', 'borderRadius': '5px'})
             
-            # Spara transaktionerna (här kan du lägga till logik för att spara till databas/YAML)
-            # För nu visar vi bara framgång
+            # Spara transaktionerna till fil
+            parse_transactions.save_transactions(transactions, append=True)
             
             return html.Div([
                 html.Span('✅ ', style={'fontSize': '20px'}),
-                html.Span(f'Import lyckades! {len(transactions)} transaktioner importerade från {filename}'),
+                html.Span(f'Import lyckades! {len(transactions)} transaktioner importerade och sparade från {filename}'),
                 html.Br(),
                 html.Small(f'Första transaktion: {transactions[0].date} - {transactions[0].description} - {transactions[0].amount} SEK', 
-                          style={'color': '#666'})
+                          style={'color': '#666'}),
+                html.Br(),
+                html.Small('Uppdatera sidan för att se transaktionerna i prognosen.', style={'color': '#666', 'fontStyle': 'italic'})
             ], style={'color': 'green', 'padding': '10px', 'backgroundColor': '#d4edda', 'borderRadius': '5px'})
             
         except FileNotFoundError as e:

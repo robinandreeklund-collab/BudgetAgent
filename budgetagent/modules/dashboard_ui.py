@@ -1232,8 +1232,10 @@ def render_dashboard() -> None:
         if not ctx.triggered or not any(n_clicks_list):
             return html.Div(), update_accounts_display(0, None)
         
-        # Använd ctx.triggered_id direkt för pattern-matching callbacks
-        # Det är redan en dictionary, inte en JSON-sträng
+        # I pattern-matching callbacks (Dash >=2.0), ctx.triggered_id är redan en dictionary
+        # (med nycklar som 'type', 'account', 'filename'). I äldre Dash-versioner eller
+        # icke-pattern-matching callbacks kan detta vara en JSON-sträng istället.
+        # Här kan vi alltså använda ctx.triggered_id direkt som en dict.
         button_data = ctx.triggered_id
         
         if not button_data:

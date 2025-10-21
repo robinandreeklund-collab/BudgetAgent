@@ -228,35 +228,210 @@ def normalize_columns(data: pd.DataFrame, format: str) -> pd.DataFrame:
     return df[available_cols]
 
 
-def import_and_parse(file_path: str) -> List[Transaction]:
+def extract_balance_info(raw_data: pd.DataFrame, bank_format: str) -> Optional[tuple]:
+    """
+    Extraherar saldoinformation från bankdata.
+    
+    Letar efter saldo-kolumn i bankunderlaget och extraherar det senaste saldot
+    samt datum för detta saldo.
+    
+    Args:
+        raw_data: DataFrame med rådata
+        bank_format: Bankformat identifierat av detect_format()
+        
+    Returns:
+        Tuple (balance, balance_date, currency) eller None om inget saldo hittas
+    """
+    from decimal import Decimal
+    
+    balance = None
+    balance_date = None
+    currency = "SEK"
+    
+    # Olika banker har olika sätt att visa saldo
+    if bank_format == "Nordea":
+        # Nordea har flera olika format
+        # Format 1: Traditionellt med Saldo-kolumn för saldovärden
+        # Format 2: Där "Saldo" = valuta och "Rubrik" = saldo-belopp
+        
+        # Först, försök hitta datum - använd senaste (max) datum
+        if 'Bokföringsdatum' in raw_data.columns:
+            date_col = raw_data['Bokföringsdatum'].dropna()
+            if not date_col.empty:
+                # Konvertera alla datum och hitta det senaste
+                dates = pd.to_datetime(date_col, errors='coerce').dropna()
+                if not dates.empty:
+                    balance_date = dates.max().date()
+        elif 'Bokföringsdag' in raw_data.columns:
+            date_col = raw_data['Bokföringsdag'].dropna()
+            if not date_col.empty:
+                # Konvertera alla datum och hitta det senaste
+                dates = pd.to_datetime(date_col, errors='coerce').dropna()
+                if not dates.empty:
+                    balance_date = dates.max().date()
+        
+        # Försök extrahera saldo från raden med senaste datumet
+        # Hitta index för raden med senaste datum
+        latest_row_idx = None
+        if 'Bokföringsdatum' in raw_data.columns:
+            date_col = raw_data['Bokföringsdatum'].dropna()
+            if not date_col.empty:
+                dates = pd.to_datetime(date_col, errors='coerce')
+                if not dates.isna().all():
+                    latest_row_idx = dates.idxmax()
+        elif 'Bokföringsdag' in raw_data.columns:
+            date_col = raw_data['Bokföringsdag'].dropna()
+            if not date_col.empty:
+                dates = pd.to_datetime(date_col, errors='coerce')
+                if not dates.isna().all():
+                    latest_row_idx = dates.idxmax()
+        
+        # Om vi inte kunde hitta via datum, använd sista raden
+        if latest_row_idx is None:
+            latest_row_idx = raw_data.index[-1]
+        
+        # Fall 1: Saldo är valuta och Rubrik är saldo-beloppet
+        if 'Saldo' in raw_data.columns and 'Rubrik' in raw_data.columns and 'Valuta' in raw_data.columns:
+            # Kontrollera om Saldo-kolumnen innehåller valuta-värden (SEK, EUR etc)
+            saldo_sample = raw_data['Saldo'].dropna()
+            if not saldo_sample.empty:
+                first_val = str(saldo_sample.iloc[0]).strip().upper()
+                if first_val in ['SEK', 'EUR', 'USD', 'NOK', 'DKK']:
+                    # Detta är formatet där Saldo=valuta och Rubrik=saldo-belopp
+                    # Hämta värdet från raden med senaste datum
+                    if latest_row_idx in raw_data.index and not pd.isna(raw_data.loc[latest_row_idx, 'Rubrik']):
+                        balance_val = raw_data.loc[latest_row_idx, 'Rubrik']
+                        try:
+                            balance = Decimal(str(balance_val).replace(',', '.').replace(' ', ''))
+                        except:
+                            pass
+                    currency = first_val
+                else:
+                    # Saldo innehåller numeriska värden
+                    if latest_row_idx in raw_data.index and not pd.isna(raw_data.loc[latest_row_idx, 'Saldo']):
+                        balance_val = raw_data.loc[latest_row_idx, 'Saldo']
+                        try:
+                            balance = Decimal(str(balance_val).replace(',', '.').replace(' ', ''))
+                        except:
+                            pass
+                    # Hämta valuta från Valuta-kolumnen
+                    if not raw_data['Valuta'].isna().all():
+                        currency = raw_data['Valuta'].dropna().iloc[0]
+        
+        # Fall 2: Saldo är en vanlig kolumn med saldovärden
+        elif 'Saldo' in raw_data.columns:
+            if latest_row_idx in raw_data.index and not pd.isna(raw_data.loc[latest_row_idx, 'Saldo']):
+                balance_val = raw_data.loc[latest_row_idx, 'Saldo']
+                try:
+                    # Testa om det är ett numeriskt värde
+                    balance = Decimal(str(balance_val).replace(',', '.').replace(' ', ''))
+                except:
+                    pass
+            
+            # Hämta valuta
+            if 'Valuta' in raw_data.columns and not raw_data['Valuta'].isna().all():
+                currency = raw_data['Valuta'].dropna().iloc[0]
+        
+        # Fall 3: Ingen Saldo-kolumn, försök hitta i annan kolumn
+        # Vissa Nordea-format kan ha saldo i en kolumn som heter något annat
+        # Kontrollera kolumner med numeriska värden som inte är Belopp
+        if balance is None:
+            for col in raw_data.columns:
+                if col not in ['Belopp', 'Bokföringsdatum', 'Bokföringsdag', 'Rubrik', 'Namn', 
+                              'Avsändare', 'Mottagare', 'Valuta']:
+                    # Testa om denna kolumn innehåller numeriska värden
+                    try:
+                        if latest_row_idx in raw_data.index and not pd.isna(raw_data.loc[latest_row_idx, col]):
+                            last_val = raw_data.loc[latest_row_idx, col]
+                            # Försök konvertera till Decimal
+                            balance = Decimal(str(last_val).replace(',', '.').replace(' ', ''))
+                            break
+                    except:
+                        continue
+    
+    elif bank_format == "SEB":
+        # Hitta raden med senaste datum för SEB
+        latest_row_idx = None
+        if 'Bokföringsdatum' in raw_data.columns:
+            date_col = raw_data['Bokföringsdatum'].dropna()
+            if not date_col.empty:
+                dates = pd.to_datetime(date_col, errors='coerce')
+                if not dates.isna().all():
+                    latest_row_idx = dates.idxmax()
+        
+        # Om vi inte kunde hitta via datum, använd sista raden
+        if latest_row_idx is None:
+            latest_row_idx = raw_data.index[-1]
+        
+        # SEB har alltid Saldo-kolumn
+        if 'Saldo' in raw_data.columns:
+            if latest_row_idx in raw_data.index and not pd.isna(raw_data.loc[latest_row_idx, 'Saldo']):
+                balance_val = raw_data.loc[latest_row_idx, 'Saldo']
+                try:
+                    balance = Decimal(str(balance_val).replace(',', '.').replace(' ', ''))
+                except:
+                    pass
+        
+        if 'Bokföringsdatum' in raw_data.columns:
+            date_col = raw_data['Bokföringsdatum'].dropna()
+            if not date_col.empty:
+                # Konvertera alla datum och hitta det senaste
+                dates = pd.to_datetime(date_col, errors='coerce').dropna()
+                if not dates.empty:
+                    balance_date = dates.max().date()
+        
+        if 'Valuta' in raw_data.columns and not raw_data['Valuta'].isna().all():
+            currency = raw_data['Valuta'].dropna().iloc[0]
+    
+    if balance is not None and balance_date is not None:
+        return (balance, balance_date, currency)
+    
+    return None
+
+
+def import_and_parse(file_path: str, check_duplicates: bool = True) -> List[Transaction]:
     """
     Importerar och konverterar bankdata till Transaction-objekt.
     
     Huvudfunktion som kombinerar filimport, formatdetektering och
-    konvertering till standardiserade Transaction-objekt.
+    konvertering till standardiserade Transaction-objekt. Inkluderar
+    automatisk kontohantering och dupliceringsskydd.
     
     Args:
         file_path: Sökväg till filen att importera
+        check_duplicates: Om True, kontrollera och filtrera bort dubbletter
         
     Returns:
-        Lista med Transaction-objekt
+        Lista med Transaction-objekt (endast nya transaktioner om check_duplicates=True)
     """
     from datetime import datetime
     from decimal import Decimal
+    from . import account_manager
     
-    # Steg 1: Ladda fil
+    # Steg 1: Extrahera kontonamn från filnamn
+    account_name = account_manager.extract_account_from_filename(file_path)
+    
+    # Steg 2: Kontrollera om filen redan har importerats
+    if check_duplicates and account_manager.is_file_imported(account_name, file_path):
+        print(f"Fil {file_path} har redan importerats för konto {account_name}")
+        return []
+    
+    # Steg 3: Ladda fil
     raw_data = load_file(file_path)
     
-    # Steg 2: Detektera format
+    # Steg 4: Detektera format
     bank_format = detect_format(raw_data)
     
-    # Steg 3: Normalisera kolumner
+    # Steg 4.5: Extrahera saldoinformation innan normalisering
+    balance_info = extract_balance_info(raw_data, bank_format)
+    
+    # Steg 5: Normalisera kolumner
     normalized_data = normalize_columns(raw_data, bank_format)
     
     # Filtrera bort tomma rader (alla värden är NaN)
     normalized_data = normalized_data.dropna(how='all')
     
-    # Steg 4: Konvertera till Transaction-objekt
+    # Steg 6: Konvertera till Transaction-objekt
     transactions = []
     for idx, row in normalized_data.iterrows():
         try:
@@ -294,5 +469,28 @@ def import_and_parse(file_path: str) -> List[Transaction]:
             # Hoppa över transaktioner som inte kan parsas
             print(f"Kunde inte parsa transaktion på rad {idx}: {e}")
             continue
+    
+    # Steg 7: Filtrera bort dubbletter av transaktioner
+    if check_duplicates:
+        new_transactions, duplicates = account_manager.filter_duplicate_transactions(
+            account_name, transactions
+        )
+        
+        if duplicates:
+            print(f"Hittade {len(duplicates)} dubbletter som filtrerades bort")
+        
+        # Registrera de nya transaktionerna
+        if new_transactions:
+            account_manager.register_transactions(account_name, new_transactions)
+        
+        # Uppdatera saldoinformation om tillgänglig
+        if balance_info:
+            balance, balance_date, currency = balance_info
+            account_manager.update_account_balance(account_name, balance, balance_date, currency)
+        
+        # Markera filen som importerad
+        account_manager.add_imported_file(account_name, file_path)
+        
+        return new_transactions
     
     return transactions

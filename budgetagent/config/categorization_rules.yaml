@@ -1,3 +1,23 @@
+# Konfiguration för hybridkategorisering
+# Kombinerar regelbaserad och AI-baserad kategorisering
+config:
+  # Regelbaserad kategorisering körs först
+  use_rules: true
+
+  # AI-fallback aktiveras vid låg säkerhet eller okänd kategori
+  use_ai_fallback: true
+
+  # Tröskelvärde för säkerhet (0.0-1.0)
+  # Under detta värde flaggas transaktionen för manuell granskning
+  confidence_threshold: 0.7
+
+  # Flagga transaktioner för manuell granskning om säkerheten är låg
+  flag_low_confidence: true
+
+  # Minsta tröskelvärde för AI-kategorisering
+  # Under detta används "Okategoriserad"
+  ai_min_confidence: 0.5
+
 categories:
   mat:
     keywords:
@@ -10,6 +30,8 @@ categories:
       - burger
       - restaurant
       - pizzeria
+    # Hög säkerhet vid exakt matchning
+    confidence: 0.95
 
   boende:
     keywords:
@@ -20,6 +42,7 @@ categories:
       - bredband
       - internet
       - försäkring bostads
+    confidence: 0.95
 
   transport:
     keywords:
@@ -34,6 +57,7 @@ categories:
       - uber
       - taxi
       - parkering
+    confidence: 0.95
 
   nöje:
     keywords:
@@ -46,6 +70,7 @@ categories:
       - konsert
       - teater
       - streaming
+    confidence: 0.95
 
   kläder:
     keywords:
@@ -56,6 +81,7 @@ categories:
       - dressman
       - lindex
       - stadium
+    confidence: 0.95
 
   hälsa:
     keywords:
@@ -66,6 +92,7 @@ categories:
       - vårdcentral
       - sjukhus
       - optiker
+    confidence: 0.95
 
   försäkring:
     keywords:
@@ -74,9 +101,11 @@ categories:
       - folksam
       - länsförsäkringar
       - trygg hansa
+    confidence: 0.95
 
   inkomst:
     keywords:
       - lön
       - salary
       - utbetalning
+    confidence: 0.95

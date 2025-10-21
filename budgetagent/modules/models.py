@@ -272,3 +272,47 @@ class Scenario(BaseModel):
                 "one_time_transactions": []
             }
         }
+
+
+class Account(BaseModel):
+    """
+    Representerar ett bankkonto i systemet.
+    
+    Används av account_manager för att hålla koll på importerade konton
+    och undvika dubbletter av både filer och transaktioner.
+    
+    Attributes:
+        account_name: Unikt kontonamn (från filnamn)
+        account_number: Kontonummer (om tillgängligt)
+        imported_files: Lista över importerade filnamn med checksums
+        last_import_date: Senaste importdatum
+        transaction_hashes: Set av transaktions-hasher för dupliceringsskydd
+        current_balance: Aktuellt saldo (från senaste import)
+        balance_date: Datum för aktuellt saldo
+        balance_currency: Valuta för saldo (standard: SEK)
+    """
+    account_name: str
+    account_number: Optional[str] = None
+    imported_files: List[Dict[str, str]] = Field(default_factory=list)
+    last_import_date: Optional[datetime] = None
+    transaction_hashes: set = Field(default_factory=set)
+    current_balance: Optional[Decimal] = None
+    balance_date: Optional[date] = None
+    balance_currency: str = "SEK"
+    
+    class Config:
+        """Pydantic configuration."""
+        json_schema_extra = {
+            "example": {
+                "account_name": "PERSONKONTO 1709 20 72840",
+                "account_number": "1709 20 72840",
+                "imported_files": [
+                    {"filename": "PERSONKONTO 1709 20 72840 - 2025-10-21 09.39.41.csv", "checksum": "abc123"}
+                ],
+                "last_import_date": "2025-10-21T09:39:41",
+                "transaction_hashes": set(),
+                "current_balance": "15000.00",
+                "balance_date": "2025-10-21",
+                "balance_currency": "SEK"
+            }
+        }

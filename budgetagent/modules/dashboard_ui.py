@@ -17,7 +17,7 @@ from dash import Dash, html, dcc, Input, Output, State
 import plotly.graph_objects as go
 import plotly.express as px
 from .models import Transaction, Bill, Income, ForecastData
-from . import upcoming_bills, income_tracker, forecast_engine, alerts_and_insights
+from . import upcoming_bills, income_tracker, forecast_engine, alerts_and_insights, query_parser
 
 
 def create_app_layout() -> html.Div:
@@ -251,38 +251,20 @@ def update_forecast_graph(forecast_data: List[ForecastData]) -> go.Figure:
     pass
 
 
-def parse_agent_query(query: str) -> Dict:
+def handle_agent_query(query: str) -> str:
     """
-    Parsar användarfråga och identifierar intent och parametrar.
+    Hanterar agentfråga genom att använda query_parser-modulen.
     
-    Analyserar naturlig språkfråga och extraherar:
-    - Intent (t.ex. "show_bills", "calculate_balance", "forecast_scenario")
-    - Parametrar (t.ex. månad, kategori, belopp)
+    Wrapper-funktion som anropar query_parser för att besvara
+    användarens fråga.
     
     Args:
         query: Användarens fråga i naturligt språk
         
     Returns:
-        Dictionary med intent och parametrar
-    """
-    pass
-
-
-def execute_agent_query(intent: str, params: Dict) -> str:
-    """
-    Exekverar tolkad fråga och returnerar svar.
-    
-    Anropar relevanta moduler baserat på intent och parametrar
-    för att generera ett svar på användarens fråga.
-    
-    Args:
-        intent: Identifierad intent från parse_agent_query()
-        params: Parametrar extraherade från frågan
-        
-    Returns:
         Svar som formaterad text
     """
-    pass
+    return query_parser.answer_query(query)
 
 
 def render_dashboard() -> None:

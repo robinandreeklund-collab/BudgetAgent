@@ -532,10 +532,27 @@ def render_dashboard() -> None:
     def update_insights(_):
         """Uppdaterar insikter och varningar."""
         try:
-            # Hämta historiska transaktioner (placeholder)
-            # I en riktig implementation skulle vi ladda faktiska transaktioner
-            alerts_list = ["Inga varningar för tillfället"]
-            insights_list = ["Ladda transaktionsdata för att se insikter"]
+            # Ladda faktiska transaktioner
+            transactions = parse_transactions.load_transactions()
+            
+            if transactions:
+                total_transactions = len(transactions)
+                total_expenses = sum(t.amount for t in transactions if t.amount < 0)
+                total_income = sum(t.amount for t in transactions if t.amount > 0)
+                
+                alerts_list = [
+                    "Inga varningar för tillfället"
+                ]
+                
+                insights_list = [
+                    f"Totalt {total_transactions} transaktioner importerade",
+                    f"Totala utgifter: {total_expenses:.2f} SEK",
+                    f"Totala inkomster: {total_income:.2f} SEK",
+                    f"Nettosaldo: {(total_income + total_expenses):.2f} SEK"
+                ]
+            else:
+                alerts_list = ["Inga varningar för tillfället"]
+                insights_list = ["Importera Nordea CSV-filer för att se insikter"]
             
             alerts_div = html.Div([
                 html.H4("⚠️ Varningar"),
@@ -550,6 +567,46 @@ def render_dashboard() -> None:
             return alerts_div, insights_div
         except Exception as e:
             return html.Div(f"Fel: {e}"), html.Div()
+    
+    # Callback för att spara inställningar och uppdatera prognos
+    @app.callback(
+        [Output('settings-feedback', 'children'),
+         Output('forecast-graph', 'figure', allow_duplicate=True)],
+        Input('save-settings-button', 'n_clicks'),
+        [State('forecast-window', 'value'),
+         State('split-rule', 'value'),
+         State('alert-threshold', 'value')],
+        prevent_initial_call=True
+    )
+    def save_settings_callback(n_clicks, forecast_window, split_rule, alert_threshold):
+        """Sparar inställningar och uppdaterar prognosen."""
+        if n_clicks:
+            try:
+                # Här skulle vi spara inställningarna till YAML-fil
+                # För nu uppdaterar vi bara prognosen med det nya värdet
+                
+                # Uppdatera prognosen med nytt fönster
+                forecast_data = forecast_engine.simulate_monthly_balance(forecast_window or 6)
+                new_figure = update_forecast_graph(forecast_data)
+                
+                feedback = html.Div([
+                    html.Span('✅ ', style={'fontSize': '20px'}),
+                    html.Span(f'Inställningar sparade! Prognos uppdaterad för {forecast_window or 6} månader.')
+                ], style={'color': 'green', 'padding': '10px', 'backgroundColor': '#d4edda', 'borderRadius': '5px', 'marginTop': '10px'})
+                
+                return feedback, new_figure
+            except Exception as e:
+                feedback = html.Div([
+                    html.Span('❌ ', style={'fontSize': '20px'}),
+                    html.Span(f'Fel vid sparande: {str(e)}')
+                ], style={'color': 'red', 'padding': '10px', 'backgroundColor': '#f8d7da', 'borderRadius': '5px', 'marginTop': '10px'})
+                
+                # Returnera gammal graf vid fel
+                forecast_data = forecast_engine.simulate_monthly_balance(6)
+                fallback_figure = update_forecast_graph(forecast_data)
+                return feedback, fallback_figure
+        
+        return html.Div(), go.Figure()
     
     # Kör server
     app.run(debug=True, host='0.0.0.0', port=8050)

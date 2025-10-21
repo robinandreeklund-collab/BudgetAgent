@@ -289,7 +289,7 @@ def write_bills_to_yaml(bills: List[Bill], yaml_path: str) -> None:
             # Kontrollera för dubbletter
             duplicate = any(
                 b.get('name') == bill_dict['name'] and
-                float(b.get('amount', 0)) == bill_dict['amount'] and
+                abs(float(b.get('amount', 0)) - bill_dict['amount']) < 0.01 and
                 b.get('due_date') == bill_dict['due_date']
                 for b in data['upcoming_bills']['bills']
             )

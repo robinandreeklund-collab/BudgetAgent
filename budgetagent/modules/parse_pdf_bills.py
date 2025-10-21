@@ -8,7 +8,7 @@ Extraherad information sparas direkt i upcoming_bills.yaml för vidare användni
 Beroenden:
 - pdfplumber för PDF-textextraktion
 - pytesseract (valfritt) för OCR
-- pdf2image (valfritt) för bildbaserade fakturor
+- pdf2image (valfri) för bildbaserade fakturor
 
 Exempel på YAML-konfiguration (parse_pdf_bills.yaml):
     parse_pdf_bills:

@@ -1,0 +1,10 @@
+# Training data för AI-baserad kategorisering
+# Denna fil fylls på automatiskt när användaren tränar modellen via UI:t
+# Format: beskrivning -> kategori mappningar för att förbättra TF-IDF klassificering
+
+training_examples: []
+# Exempel på struktur när data läggs till:
+# - description: "ICA Maxi Linköping"
+#   category: "Mat"
+#   date_added: "2025-10-21"
+#   confidence: 1.0

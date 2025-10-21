@@ -15,6 +15,9 @@ yamllint>=1.26.0
 # Additional dependencies
 python-dateutil>=2.8.0
 
+# Machine learning dependencies for hybrid categorization
+scikit-learn>=1.0.0
+
 # PDF parsing dependencies
 pdfplumber>=0.10.0
 

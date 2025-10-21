@@ -1,0 +1,10 @@
+net_balance_splitter:
+  rule: "income_weighted"
+  custom_ratio:
+    robin: 0.6
+    partner: 0.4
+  shared_expenses:
+    categories: ["Boende", "Mat", "Transport"]
+  individual_expenses:
+    robin: ["Nöje", "Frilansverktyg"]
+    partner: ["Shopping", "Streaming"]

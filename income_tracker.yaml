@@ -1,0 +1,16 @@
+income_tracker:
+  people:
+    - name: "Robin"
+      recurring_income:
+        - source: "Lön"
+          amount: 28000
+          frequency: "monthly"
+      one_time_income:
+        - source: "Frilans"
+          amount: 5000
+          date: "2025-12-10"
+    - name: "Partner"
+      recurring_income:
+        - source: "Lön"
+          amount: 22000
+          frequency: "monthly"

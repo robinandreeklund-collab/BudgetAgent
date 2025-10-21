@@ -1,0 +1,18 @@
+test_plan:
+  tests:
+    - name: "test_import_sweden_csv"
+      module: import_bank_data
+    - name: "test_categorization_rules"
+      module: categorize_expenses
+    - name: "test_upcoming_bills"
+      module: upcoming_bills
+    - name: "test_income_tracker"
+      module: income_tracker
+    - name: "test_forecast_average"
+      module: forecast_engine
+    - name: "test_future_income_injection"
+      module: forecast_engine
+    - name: "test_net_balance_splitter"
+      module: net_balance_splitter
+    - name: "test_ui_interaction"
+      module: dashboard_ui

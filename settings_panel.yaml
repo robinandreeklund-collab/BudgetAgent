@@ -1,0 +1,22 @@
+settings_panel:
+  import_format:
+    type: dropdown
+    options: ["Swedbank CSV", "SEB Excel", "Revolut JSON"]
+  forecast_window:
+    type: slider
+    min: 1
+    max: 12
+    default: 6
+    unit: "months"
+  split_rule:
+    type: dropdown
+    options: ["equal_split", "income_weighted", "custom_ratio", "needs_based"]
+  alert_threshold:
+    type: slider
+    min: 0
+    max: 100
+    default: 80
+    unit: "%"
+  show_debug_panel:
+    type: toggle
+    default: true

@@ -1,0 +1,14 @@
+upcoming_bills:
+  bills:
+    - name: "Elräkning"
+      amount: 900
+      due_date: "2025-11-30"
+      category: "Boende"
+    - name: "Internet"
+      amount: 399
+      due_date: "2025-11-15"
+      category: "Boende"
+    - name: "Spotify"
+      amount: 109
+      due_date: "2025-11-20"
+      category: "Nöje"

@@ -136,13 +136,32 @@ def simulate_monthly_balance(months: int) -> List[ForecastData]:
     from datetime import datetime
     from dateutil.relativedelta import relativedelta
     from decimal import Decimal
-    from . import income_tracker, upcoming_bills
+    from . import income_tracker, upcoming_bills, parse_transactions
     
     # Hämta framtida inkomster och fakturor
     future_income = income_tracker.forecast_income(months)
     
+    # Ladda historiska transaktioner för att beräkna genomsnittliga utgifter
+    historical_transactions = parse_transactions.load_transactions()
+    
+    # Konvertera till DataFrame för analys
+    if historical_transactions:
+        hist_data = pd.DataFrame([{
+            'date': t.date,
+            'amount': float(t.amount),
+            'category': t.category
+        } for t in historical_transactions])
+        
+        # Beräkna genomsnittliga utgifter från historik
+        historical_avg = calculate_historical_average(hist_data, window=3)
+        # Summera genomsnittliga utgifter per månad
+        avg_monthly_expenses = sum(Decimal(str(v)) for v in historical_avg.values()) if historical_avg else Decimal(0)
+    else:
+        # Ingen historik finns - använd 0 istället för fallback
+        avg_monthly_expenses = Decimal(0)
+    
     forecast_data = []
-    current_balance = Decimal(10000)  # Startbalans (skulle kunna hämtas från aktuellt saldo)
+    current_balance = Decimal(0)  # Startbalans på 0 för demo-läge
     today = datetime.now().date()
     
     for month_offset in range(months):
@@ -159,11 +178,8 @@ def simulate_monthly_balance(months: int) -> List[ForecastData]:
         monthly_bills = upcoming_bills.get_upcoming_bills(month_key)
         monthly_expenses = sum(bill.amount for bill in monthly_bills)
         
-        # Beräkna genomsnittliga övriga utgifter (från historik)
-        # För nu använder vi ett fast värde, men detta skulle kunna hämtas från calculate_historical_average
-        estimated_other_expenses = Decimal(2000)  # Placeholder
-        
-        total_expenses = Decimal(monthly_expenses) + estimated_other_expenses
+        # Lägg till genomsnittliga övriga utgifter (från historik)
+        total_expenses = Decimal(monthly_expenses) + avg_monthly_expenses
         
         # Beräkna nytt saldo
         current_balance = current_balance + monthly_income - total_expenses

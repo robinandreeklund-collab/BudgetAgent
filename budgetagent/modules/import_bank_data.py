@@ -37,7 +37,33 @@ def load_file(path: str) -> pd.DataFrame:
     suffix = file_path.suffix.lower()
     
     if suffix == '.csv':
-        return pd.read_csv(path)
+        # Försök olika separatorer och encodings
+        # Nordea kan använda komma, tab eller semikolon som separator
+        # Encodings: UTF-8 med BOM eller Windows-1252
+        
+        # Lista över kombinationer att testa
+        attempts = [
+            {'sep': ';', 'encoding': 'utf-8-sig'},    # Semikolon (vanlig för svenska Nordea)
+            {'sep': '\t', 'encoding': 'utf-8-sig'},   # Tab
+            {'sep': ',', 'encoding': 'utf-8-sig'},    # Komma
+            {'sep': None, 'encoding': 'utf-8-sig', 'engine': 'python'},  # Auto-detect med python engine
+            {'sep': ';', 'encoding': 'windows-1252'}, # Semikolon med Windows-1252
+            {'sep': '\t', 'encoding': 'windows-1252'}, # Tab med Windows-1252
+        ]
+        
+        last_error = None
+        for attempt in attempts:
+            try:
+                df = pd.read_csv(path, **attempt)
+                # Kontrollera att vi fick flera kolumner (inte bara en kolumn med fel separator)
+                if len(df.columns) > 1:
+                    return df
+            except Exception as e:
+                last_error = e
+                continue
+        
+        # Om inget fungerade, ge ett informativt felmeddelande
+        raise ValueError(f"Kunde inte läsa CSV-fil med någon separator (komma, tab, semikolon). Senaste fel: {str(last_error)}")
     elif suffix in ['.xlsx', '.xls']:
         return pd.read_excel(path)
     elif suffix == '.json':
@@ -48,7 +74,7 @@ def load_file(path: str) -> pd.DataFrame:
 
 def detect_format(data: pd.DataFrame) -> str:
     """
-    Identifierar bankformat (Swedbank, SEB, Revolut etc.).
+    Identifierar bankformat (Swedbank, SEB, Revolut, Nordea etc.).
     
     Analyserar strukturen och innehållet i DataFrame för att identifiera
     vilken bank som har skapat utdraget.
@@ -57,12 +83,23 @@ def detect_format(data: pd.DataFrame) -> str:
         data: DataFrame med rådata
         
     Returns:
-        Sträng med banknamn, t.ex. "Swedbank", "SEB", "Revolut"
+        Sträng med banknamn, t.ex. "Swedbank", "SEB", "Revolut", "Nordea"
     """
     if data.empty:
         return "Unknown"
     
     columns = [col.lower() for col in data.columns]
+    
+    # Nordea format: Bokföringsdatum, Belopp, och ofta Rubrik eller Avsändare/Mottagare
+    # Nordea använder ofta "Bokföringsdatum" eller "Bokföringsdag" och antingen "Rubrik", "Namn" eller både "Avsändare" och "Mottagare"
+    # Kan även ha "Saldo"-kolumn (till skillnad från SEB som alltid har Saldo)
+    if ('bokföringsdatum' in columns or 'bokföringsdag' in columns) and 'belopp' in columns:
+        # Kontrollera om det är Nordea (har Rubrik, Namn eller Avsändare/Mottagare)
+        if 'rubrik' in columns or 'namn' in columns or ('avsändare' in columns or 'mottagare' in columns):
+            # Nordea kan ha Saldo, men SEB har alltid Saldo + specifik struktur
+            # Om både Saldo och typiska SEB-kolumner finns, är det SEB
+            if not ('saldo' in columns and 'valutadatum' not in columns and 'rubrik' not in columns):
+                return "Nordea"
     
     # Swedbank format: Datum, Belopp, Beskrivning
     if 'datum' in columns and 'belopp' in columns and 'beskrivning' in columns:
@@ -101,7 +138,48 @@ def normalize_columns(data: pd.DataFrame, format: str) -> pd.DataFrame:
     df = data.copy()
     
     # Mapping av kolumnnamn baserat på format
-    if format == "Swedbank":
+    if format == "Nordea":
+        # Nordea kan ha olika kolumnformat
+        # Format 1: Bokföringsdatum, Belopp, Rubrik, Valuta
+        # Format 2: Bokföringsdag, Belopp, Avsändare, Mottagare, Namn, Rubrik, Saldo, Valuta
+        # där Namn = beskrivning, Saldo = valuta, Rubrik = saldo-belopp
+        
+        column_mapping = {}
+        
+        # Datum-kolumn
+        if 'Bokföringsdatum' in df.columns:
+            column_mapping['Bokföringsdatum'] = 'date'
+        elif 'Bokföringsdag' in df.columns:
+            column_mapping['Bokföringsdag'] = 'date'
+        
+        # Belopp
+        column_mapping['Belopp'] = 'amount'
+        
+        # Beskrivning - Nordea har olika varianter
+        # Prioritera Rubrik om den finns och inte är tom, annars Namn
+        if 'Rubrik' in df.columns and not df['Rubrik'].isna().all():
+            column_mapping['Rubrik'] = 'description'
+        elif 'Namn' in df.columns and not df['Namn'].isna().all():
+            # Format med Namn-kolumn (det är den riktiga beskrivningen)
+            column_mapping['Namn'] = 'description'
+        elif 'Avsändare' in df.columns:
+            column_mapping['Avsändare'] = 'description'
+        elif 'Mottagare' in df.columns:
+            column_mapping['Mottagare'] = 'description'
+        
+        # Valuta - Nordea kan ha Valuta eller Saldo som valuta-kolumn
+        if 'Saldo' in df.columns and 'Valuta' in df.columns:
+            # Kontrollera om Valuta-kolumnen är tom (NaN)
+            if df['Valuta'].isna().all():
+                # Använd Saldo-kolumnen istället
+                column_mapping['Saldo'] = 'currency'
+            else:
+                column_mapping['Valuta'] = 'currency'
+        elif 'Valuta' in df.columns:
+            column_mapping['Valuta'] = 'currency'
+        elif 'Saldo' in df.columns:
+            column_mapping['Saldo'] = 'currency'
+    elif format == "Swedbank":
         column_mapping = {
             'Datum': 'date',
             'Belopp': 'amount',
@@ -131,7 +209,7 @@ def normalize_columns(data: pd.DataFrame, format: str) -> pd.DataFrame:
                 column_mapping[col] = 'date'
             elif col_lower in ['amount', 'belopp']:
                 column_mapping[col] = 'amount'
-            elif col_lower in ['description', 'beskrivning']:
+            elif col_lower in ['description', 'beskrivning', 'rubrik']:
                 column_mapping[col] = 'description'
             elif col_lower in ['currency', 'valuta']:
                 column_mapping[col] = 'currency'
@@ -175,32 +253,46 @@ def import_and_parse(file_path: str) -> List[Transaction]:
     # Steg 3: Normalisera kolumner
     normalized_data = normalize_columns(raw_data, bank_format)
     
+    # Filtrera bort tomma rader (alla värden är NaN)
+    normalized_data = normalized_data.dropna(how='all')
+    
     # Steg 4: Konvertera till Transaction-objekt
     transactions = []
-    for _, row in normalized_data.iterrows():
+    for idx, row in normalized_data.iterrows():
         try:
+            # Hoppa över rader där datum saknas eller är ogiltigt
+            if pd.isna(row['date']) or str(row['date']).strip() == '':
+                continue
+            
             # Parsa datum
             date_val = pd.to_datetime(row['date']).date()
             
-            # Konvertera belopp till Decimal
-            amount_val = Decimal(str(row['amount']))
+            # Konvertera belopp till Decimal (hantera komma som decimaltecken)
+            if pd.isna(row['amount']):
+                continue
+            amount_str = str(row['amount']).replace(',', '.')
+            amount_val = Decimal(amount_str)
             
             # Beskrivning
-            description = str(row['description'])
+            description = str(row['description']) if not pd.isna(row['description']) else ''
+            if description.strip() == '' or description.lower() == 'nan':
+                description = 'Transaktion'
             
             # Valuta
             currency = row.get('currency', 'SEK')
+            if pd.isna(currency) or str(currency).strip() == '':
+                currency = 'SEK'
             
             transaction = Transaction(
                 date=date_val,
                 amount=amount_val,
-                description=description,
-                currency=currency
+                description=description.strip(),
+                currency=str(currency)
             )
             transactions.append(transaction)
         except Exception as e:
             # Hoppa över transaktioner som inte kan parsas
-            print(f"Kunde inte parsa transaktion: {e}")
+            print(f"Kunde inte parsa transaktion på rad {idx}: {e}")
             continue
     
     return transactions

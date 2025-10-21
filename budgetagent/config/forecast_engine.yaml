@@ -1,21 +1,5 @@
 forecast_engine:
   history_window_months: 6
-  categories:
-    - name: "Mat"
-      average_monthly_spend: 3200
-    - name: "Boende"
-      average_monthly_spend: 6500
-  future_income:
-    - person: "Robin"
-      amount: 28000
-      date: "2025-11-25"
-    - person: "Partner"
-      amount: 22000
-      date: "2025-11-25"
-  future_bills:
-    - name: "Elräkning"
-      amount: 900
-      due_date: "2025-11-30"
-    - name: "Internet"
-      amount: 399
-      due_date: "2025-11-15"
+  categories: []
+  future_income: []
+  future_bills: []

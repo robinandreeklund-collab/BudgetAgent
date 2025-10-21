@@ -9,6 +9,8 @@ extrahering av metadata som butik, kategori och plats.
 import pandas as pd
 from typing import List
 from .models import Transaction
+from pathlib import Path
+import yaml
 
 
 def parse_dates(data: pd.DataFrame) -> pd.DataFrame:
@@ -109,3 +111,84 @@ def extract_metadata(data: pd.DataFrame) -> pd.DataFrame:
                 df.at[idx, 'store'] = parts[0]
     
     return df
+
+
+def save_transactions(transactions: List[Transaction], append: bool = True) -> None:
+    """
+    Sparar transaktioner till CSV-fil.
+    
+    Lagrar importerade transaktioner i en CSV-fil för senare användning
+    i prognoser och analyser.
+    
+    Args:
+        transactions: Lista med Transaction-objekt att spara
+        append: Om True, lägg till i befintlig fil. Om False, skriv över.
+    """
+    if not transactions:
+        return
+    
+    # Bestäm sökväg till transaktionsfil
+    data_dir = Path(__file__).parent.parent / "data"
+    data_dir.mkdir(exist_ok=True)
+    transactions_file = data_dir / "transactions.csv"
+    
+    # Konvertera transaktioner till DataFrame
+    data = []
+    for trans in transactions:
+        data.append({
+            'date': str(trans.date),
+            'amount': float(trans.amount),
+            'description': trans.description,
+            'category': trans.category,
+            'currency': trans.currency
+        })
+    
+    new_df = pd.DataFrame(data)
+    
+    # Lägg till eller skriv över
+    if append and transactions_file.exists():
+        # Läs befintliga transaktioner
+        existing_df = pd.read_csv(transactions_file)
+        # Kombinera och ta bort dubbletter
+        combined_df = pd.concat([existing_df, new_df], ignore_index=True)
+        # Ta bort dubbletter baserat på datum, belopp och beskrivning
+        combined_df = combined_df.drop_duplicates(subset=['date', 'amount', 'description'], keep='first')
+        combined_df.to_csv(transactions_file, index=False)
+    else:
+        new_df.to_csv(transactions_file, index=False)
+
+
+def load_transactions() -> List[Transaction]:
+    """
+    Läser sparade transaktioner från CSV-fil.
+    
+    Returns:
+        Lista med Transaction-objekt
+    """
+    from datetime import datetime
+    from decimal import Decimal
+    
+    data_dir = Path(__file__).parent.parent / "data"
+    transactions_file = data_dir / "transactions.csv"
+    
+    if not transactions_file.exists():
+        return []
+    
+    df = pd.read_csv(transactions_file)
+    transactions = []
+    
+    for _, row in df.iterrows():
+        try:
+            trans = Transaction(
+                date=datetime.strptime(row['date'], '%Y-%m-%d').date(),
+                amount=Decimal(str(row['amount'])),
+                description=str(row['description']),
+                category=str(row['category']) if pd.notna(row.get('category')) else None,
+                currency=str(row['currency']) if pd.notna(row.get('currency')) else 'SEK'
+            )
+            transactions.append(trans)
+        except Exception as e:
+            print(f"Kunde inte läsa transaktion: {e}")
+            continue
+    
+    return transactions
